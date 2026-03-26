@@ -1,0 +1,19 @@
+{
+  "name": "PlanLizz",
+  "short_name": "PlanLizz",
+  "description": "PlanLizz helps you build and maintain daily routines with a gentle, stress-free approach.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#FFD1DC",
+  "background_color": "#F5F5F5",
+  "icons": [
+    {
+      "src": "/images/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

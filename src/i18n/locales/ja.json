@@ -1,0 +1,208 @@
+{
+  "home": {
+    "greeting": "おはようございます ☀️",
+    "subtitle": "穏やかなスタートを切りましょう",
+    "myRoutines": "マイルーティン",
+    "routineCount": "{{count}}件のルーティン",
+    "routineCount_other": "{{count}}件のルーティン",
+    "noRoutines": "ルーティンがありません",
+    "noRoutinesHint": "+ボタンをタップして最初のルーティンを作成",
+    "createRoutine": "ルーティンを作成",
+    "allRoutines": "すべてのルーティン"
+  },
+  "explore": {
+    "title": "探索",
+    "subtitle": "あなたに合ったルーティンテンプレートを発見",
+    "adoptRoutine": "ルーティンを採用"
+  },
+  "analysis": {
+    "title": "分析",
+    "subtitle": "進捗を追跡して習慣を作る",
+    "totalRoutines": "ルーティン数",
+    "tasksDone": "完了タスク",
+    "completion": "達成率",
+    "perfectDays": "パーフェクトデー",
+    "routineBreakdown": "ルーティン詳細",
+    "noDataHint": "ルーティンを作成して分析を確認"
+  },
+  "settings": {
+    "title": "設定",
+    "subtitle": "PlanLizzをカスタマイズ",
+    "preferences": "設定",
+    "theme": "テーマ",
+    "language": "言語",
+    "completionSounds": "完了サウンド",
+    "account": "アカウント",
+    "signInGoogle": "Googleでサインイン",
+    "signOut": "サインアウト",
+    "signInError": "サインインに失敗しました。",
+    "aboutApp": "PlanLizzについて",
+    "madeWith": "制作",
+    "freeLabel": "100%無料・プレミアムなし",
+    "system": "システム",
+    "light": "ライト",
+    "dark": "ダーク",
+    "on": "オン",
+    "selectLanguage": "言語を選択",
+    "viewTutorial": "チュートリアルを見る"
+  },
+  "create": {
+    "title": "ルーティンを作成",
+    "routineName": "ルーティン名",
+    "namePlaceholder": "例：朝のルーティン",
+    "days": "曜日",
+    "time": "開始時間",
+    "tasks": "タスク",
+    "taskName": "タスク名",
+    "taskPlaceholder": "例：水を飲む",
+    "addTask": "タスクを追加",
+    "cancel": "キャンセル",
+    "add": "追加",
+    "saveRoutine": "保存",
+    "duration": "所要時間",
+    "restTime": "休憩時間",
+    "reminder": "リマインダー",
+    "autoContinue": "自動続行",
+    "edit": "編集",
+    "duplicate": "複製",
+    "delete": "削除"
+  },
+  "detail": {
+    "taskDone": "{{name}} 完了！",
+    "start": "開始"
+  },
+  "timer": {
+    "selectDuration": "時間を選択",
+    "min": "分",
+    "sec": "秒",
+    "start": "開始",
+    "cancel": "キャンセル",
+    "done": "完了"
+  },
+  "success": {
+    "title": "素晴らしい！",
+    "message": "素晴らしいです。この調子で！🌟",
+    "button": "ありがとう！",
+    "tapToDismiss": "タップして閉じる"
+  },
+  "login": {
+    "subtitle": "日々のルーティンを整理",
+    "google": "Googleで続ける",
+    "or": "または",
+    "guest": "アカウントなしで続ける"
+  },
+  "welcome": {
+    "message": "あなたの時間へようこそ！あなたのルーティン、あなたのエッセンス、あなたのリズム。今日は何をして輝きましょうか？"
+  },
+  "about": {
+    "text": "PlanLizzは美学と整理整頓に情熱を持つ若い女性によって作られました。すべてのスタイルが歓迎される包括的な空間で、軽やかさとセルフケアでルーティンを計画しましょう。🎀"
+  },
+  "nav": {
+    "home": "ホーム",
+    "explore": "探索",
+    "analysis": "分析",
+    "settings": "設定"
+  },
+  "days": {
+    "sun": "日",
+    "mon": "月",
+    "tue": "火",
+    "wed": "水",
+    "thu": "木",
+    "fri": "金",
+    "sat": "土"
+  },
+  "dayLabels": {
+    "sun": "日",
+    "mon": "月",
+    "tue": "火",
+    "wed": "水",
+    "thu": "木",
+    "fri": "金",
+    "sat": "土"
+  },
+  "iconPicker": {
+    "title": "アイコンを変更",
+    "cancel": "キャンセル",
+    "done": "完了",
+    "search": "アイコンを検索"
+  },
+  "iconCategories": {
+    "recent": "最近",
+    "morning": "朝",
+    "afternoonNight": "午後/夜",
+    "health": "健康",
+    "learn": "学習",
+    "work": "仕事",
+    "professions": "職業",
+    "family": "家族",
+    "babyChild": "赤ちゃん/子供",
+    "beauty": "美容",
+    "cooking": "料理",
+    "houseTasks": "家事",
+    "vehicles": "乗り物",
+    "exercise": "運動",
+    "leisure": "レジャー",
+    "snacksDrinks": "スナック/飲み物",
+    "pets": "ペット",
+    "electronics": "電子機器",
+    "commerce": "商業",
+    "music": "音楽",
+    "religion": "宗教"
+  },
+  "suggestedRoutines": {
+    "morningWellness": "朝のウェルネス",
+    "eveningWindDown": "夜のリラックス",
+    "workoutRoutine": "トレーニング",
+    "studySession": "勉強セッション",
+    "selfCareSunday": "日曜セルフケア",
+    "drinkWater": "水を飲む",
+    "stretch": "ストレッチ",
+    "skincare": "スキンケア",
+    "breakfast": "朝食",
+    "journaling": "日記",
+    "noScreens": "スクリーンオフ",
+    "readBook": "読書",
+    "meditation": "瞑想",
+    "warmUp": "ウォームアップ",
+    "strengthTraining": "筋トレ",
+    "cardio": "有酸素運動",
+    "coolDown": "クールダウン",
+    "proteinShake": "プロテイン",
+    "reviewNotes": "ノート復習",
+    "practiceProblems": "問題練習",
+    "flashcards": "フラッシュカード",
+    "shortBreak": "小休憩",
+    "faceMask": "フェイスマスク",
+    "bubbleBath": "泡風呂",
+    "mealPrep": "食事準備",
+    "planWeek": "週間計画"
+  },
+  "tutorial": {
+    "step1Title": "ルーティンを作成 ✨",
+    "step1Desc": "ピンクの(+)ボタンをタップして最初のルーティンを作成！",
+    "step2Title": "ルーティンを組み立て 📋",
+    "step2Desc": "アイコン、タイマー、カスタム名でタスクを追加しましょう。",
+    "step3Title": "すべてのルーティンを表示 📂",
+    "step3Desc": "上部のリストアイコンですべてのルーティンを確認できます。",
+    "step4Title": "タスクの並べ替え ↕️",
+    "step4Desc": "各タスクの≡アイコンを押してドラッグして順序を変更します。",
+    "step5Title": "タイマーを開始 ⏱️",
+    "step5Desc": "「開始」を押してルーティンタイマーを始めましょう。",
+    "skip": "スキップ",
+    "gotIt": "わかった！",
+    "finish": "始めよう！"
+  },
+  "sounds": {
+    "none": "なし 🔇",
+    "arrow": "矢 🏹",
+    "bark": "ワン 🐶",
+    "birds": "鳥 🐦",
+    "correctDing": "正解 ✅",
+    "ding": "ディン 🔔",
+    "meow": "ニャー 🐾",
+    "pop": "ポップ 🎈",
+    "successDing": "成功 ✨",
+    "whistle": "ホイッスル 😙"
+  }
+}

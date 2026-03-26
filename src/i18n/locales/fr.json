@@ -1,0 +1,208 @@
+{
+  "home": {
+    "greeting": "Bonjour ☀️",
+    "subtitle": "Prêt pour un début en douceur ?",
+    "myRoutines": "Mes Routines",
+    "routineCount": "{{count}} routine",
+    "routineCount_other": "{{count}} routines",
+    "noRoutines": "Pas encore de routines",
+    "noRoutinesHint": "Appuyez sur + pour créer votre première routine",
+    "createRoutine": "Créer une routine",
+    "allRoutines": "Toutes les Routines"
+  },
+  "explore": {
+    "title": "Explorer",
+    "subtitle": "Découvrez des modèles de routine faits pour vous",
+    "adoptRoutine": "Adopter la routine"
+  },
+  "analysis": {
+    "title": "Analyse",
+    "subtitle": "Suivez vos progrès et créez des habitudes",
+    "totalRoutines": "Total Routines",
+    "tasksDone": "Tâches Faites",
+    "completion": "Achèvement",
+    "perfectDays": "Jours Parfaits",
+    "routineBreakdown": "Détail des Routines",
+    "noDataHint": "Créez des routines pour voir votre analyse ici"
+  },
+  "settings": {
+    "title": "Paramètres",
+    "subtitle": "Personnalisez votre expérience PlanLizz",
+    "preferences": "Préférences",
+    "theme": "Thème",
+    "language": "Langue",
+    "completionSounds": "Sons de fin",
+    "account": "Compte",
+    "signInGoogle": "Se connecter avec Google",
+    "signOut": "Se déconnecter",
+    "signInError": "Échec de la connexion. Réessayez.",
+    "aboutApp": "À propos de PlanLizz",
+    "madeWith": "Fait avec",
+    "freeLabel": "100% Gratuit · Sans Premium",
+    "system": "Système",
+    "light": "Clair",
+    "dark": "Sombre",
+    "on": "Activé",
+    "selectLanguage": "Choisir la langue",
+    "viewTutorial": "Voir le tutoriel"
+  },
+  "create": {
+    "title": "Créer une Routine",
+    "routineName": "Nom de la routine",
+    "namePlaceholder": "ex. Routine Matinale",
+    "days": "Jours",
+    "time": "Heure de début",
+    "tasks": "Tâches",
+    "taskName": "Nom de la tâche",
+    "taskPlaceholder": "ex: boire de l'eau",
+    "addTask": "Ajouter une tâche",
+    "cancel": "Annuler",
+    "add": "Ajouter",
+    "saveRoutine": "Enregistrer",
+    "duration": "Durée",
+    "restTime": "Temps de repos",
+    "reminder": "Rappel",
+    "autoContinue": "Continuer auto",
+    "edit": "Modifier",
+    "duplicate": "Dupliquer",
+    "delete": "Supprimer"
+  },
+  "detail": {
+    "taskDone": "{{name}} terminée !",
+    "start": "Démarrer"
+  },
+  "timer": {
+    "selectDuration": "Choisir la durée",
+    "min": "MIN",
+    "sec": "SEC",
+    "start": "Démarrer",
+    "cancel": "Annuler",
+    "done": "Terminé"
+  },
+  "success": {
+    "title": "Excellent Travail !",
+    "message": "Vous êtes formidable. Continuez ! 🌟",
+    "button": "Merci !",
+    "tapToDismiss": "Appuyez pour fermer"
+  },
+  "login": {
+    "subtitle": "Organisez vos routines quotidiennes",
+    "google": "Continuer avec Google",
+    "or": "ou",
+    "guest": "Continuer sans compte"
+  },
+  "welcome": {
+    "message": "Bienvenue dans votre moment ! Votre routine, votre essence et votre rythme. Que faisons-nous pour briller aujourd'hui ?"
+  },
+  "about": {
+    "text": "PlanLizz a été créé par une jeune femme passionnée par l'esthétique et l'organisation. C'est un espace inclusif où tous les styles sont les bienvenus pour planifier votre routine avec légèreté et soin de soi. 🎀"
+  },
+  "nav": {
+    "home": "Accueil",
+    "explore": "Explorer",
+    "analysis": "Analyse",
+    "settings": "Réglages"
+  },
+  "days": {
+    "sun": "D",
+    "mon": "L",
+    "tue": "M",
+    "wed": "M",
+    "thu": "J",
+    "fri": "V",
+    "sat": "S"
+  },
+  "dayLabels": {
+    "sun": "Dim",
+    "mon": "Lun",
+    "tue": "Mar",
+    "wed": "Mer",
+    "thu": "Jeu",
+    "fri": "Ven",
+    "sat": "Sam"
+  },
+  "iconPicker": {
+    "title": "Changer l'icône",
+    "cancel": "Annuler",
+    "done": "Terminé",
+    "search": "Rechercher des icônes"
+  },
+  "iconCategories": {
+    "recent": "Récents",
+    "morning": "Matin",
+    "afternoonNight": "Après-midi/Soir",
+    "health": "Santé",
+    "learn": "Apprendre",
+    "work": "Travail",
+    "professions": "Professions",
+    "family": "Famille",
+    "babyChild": "Bébé/Enfant",
+    "beauty": "Beauté",
+    "cooking": "Cuisine",
+    "houseTasks": "Tâches ménagères",
+    "vehicles": "Véhicules",
+    "exercise": "Exercice",
+    "leisure": "Loisirs",
+    "snacksDrinks": "Snacks/Boissons",
+    "pets": "Animaux",
+    "electronics": "Électronique",
+    "commerce": "Commerce",
+    "music": "Musique",
+    "religion": "Religion"
+  },
+  "suggestedRoutines": {
+    "morningWellness": "Bien-être Matinal",
+    "eveningWindDown": "Détente du Soir",
+    "workoutRoutine": "Entraînement",
+    "studySession": "Session d'Étude",
+    "selfCareSunday": "Dimanche Bien-être",
+    "drinkWater": "Boire de l'eau",
+    "stretch": "Étirements",
+    "skincare": "Soins de la peau",
+    "breakfast": "Petit-déjeuner",
+    "journaling": "Journal",
+    "noScreens": "Sans écrans",
+    "readBook": "Lire un livre",
+    "meditation": "Méditation",
+    "warmUp": "Échauffement",
+    "strengthTraining": "Musculation",
+    "cardio": "Cardio",
+    "coolDown": "Récupération",
+    "proteinShake": "Shake protéiné",
+    "reviewNotes": "Réviser les notes",
+    "practiceProblems": "Exercices",
+    "flashcards": "Fiches",
+    "shortBreak": "Pause courte",
+    "faceMask": "Masque facial",
+    "bubbleBath": "Bain moussant",
+    "mealPrep": "Préparer les repas",
+    "planWeek": "Planifier la semaine"
+  },
+  "tutorial": {
+    "step1Title": "Créer une Routine ✨",
+    "step1Desc": "Appuyez sur le bouton (+) rose pour créer votre première routine !",
+    "step2Title": "Construisez votre Routine 📋",
+    "step2Desc": "Ajoutez des tâches avec des icônes, des minuteurs et des noms personnalisés.",
+    "step3Title": "Voir toutes les Routines 📂",
+    "step3Desc": "Utilisez l'icône de liste en haut pour voir toutes vos routines.",
+    "step4Title": "Réorganiser les Tâches ↕️",
+    "step4Desc": "Appuyez et faites glisser l'icône ≡ à côté de chaque tâche pour changer l'ordre.",
+    "step5Title": "Démarrer le Minuteur ⏱️",
+    "step5Desc": "Appuyez sur 'Démarrer' pour lancer le minuteur de votre routine.",
+    "skip": "Passer",
+    "gotIt": "Compris !",
+    "finish": "C'est parti !"
+  },
+  "sounds": {
+    "none": "Aucun 🔇",
+    "arrow": "Flèche 🏹",
+    "bark": "Aboiement 🐶",
+    "birds": "Oiseaux 🐦",
+    "correctDing": "Correct ✅",
+    "ding": "Ding 🔔",
+    "meow": "Miaou 🐾",
+    "pop": "Pop 🎈",
+    "successDing": "Succès ✨",
+    "whistle": "Sifflet 😙"
+  }
+}

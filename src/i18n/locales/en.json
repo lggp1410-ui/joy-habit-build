@@ -1,0 +1,208 @@
+{
+  "home": {
+    "greeting": "Good morning ☀️",
+    "subtitle": "Ready for a gentle start?",
+    "myRoutines": "My Routines",
+    "routineCount": "{{count}} routine",
+    "routineCount_other": "{{count}} routines",
+    "noRoutines": "No routines yet",
+    "noRoutinesHint": "Tap the + button to create your first routine",
+    "createRoutine": "Create a routine",
+    "allRoutines": "All Routines"
+  },
+  "explore": {
+    "title": "Explore",
+    "subtitle": "Discover routine templates curated for you",
+    "adoptRoutine": "Adopt routine"
+  },
+  "analysis": {
+    "title": "Analysis",
+    "subtitle": "Track your progress and build habits",
+    "totalRoutines": "Total Routines",
+    "tasksDone": "Tasks Done",
+    "completion": "Completion",
+    "perfectDays": "Perfect Days",
+    "routineBreakdown": "Routine Breakdown",
+    "noDataHint": "Create routines to see your analysis here"
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Customize your PlanLizz experience",
+    "preferences": "Preferences",
+    "theme": "Theme",
+    "language": "Language",
+    "completionSounds": "Completion Sounds",
+    "account": "Account",
+    "signInGoogle": "Sign in with Google",
+    "signOut": "Sign out",
+    "signInError": "Sign in failed. Please try again.",
+    "aboutApp": "About PlanLizz",
+    "madeWith": "Made with",
+    "freeLabel": "100% Free · No Premium",
+    "system": "System",
+    "light": "Light",
+    "dark": "Dark",
+    "on": "On",
+    "selectLanguage": "Select Language",
+    "viewTutorial": "View tutorial"
+  },
+  "create": {
+    "title": "Create Routine",
+    "routineName": "Routine name",
+    "namePlaceholder": "e.g. Morning Routine",
+    "days": "Days",
+    "time": "Start Time",
+    "tasks": "Tasks",
+    "taskName": "Task name",
+    "taskPlaceholder": "e.g: drink water",
+    "addTask": "Add task",
+    "cancel": "Cancel",
+    "add": "Add",
+    "saveRoutine": "Save Routine",
+    "duration": "Duration",
+    "restTime": "Rest Time",
+    "reminder": "Reminder",
+    "autoContinue": "Auto Continue",
+    "edit": "Edit",
+    "duplicate": "Duplicate",
+    "delete": "Delete"
+  },
+  "detail": {
+    "taskDone": "{{name}} done!",
+    "start": "Start"
+  },
+  "timer": {
+    "selectDuration": "Select duration",
+    "min": "MIN",
+    "sec": "SEC",
+    "start": "Start",
+    "cancel": "Cancel",
+    "done": "Done"
+  },
+  "success": {
+    "title": "Great Job!",
+    "message": "You're doing great. Keep it up! 🌟",
+    "button": "Thank you!",
+    "tapToDismiss": "Tap to dismiss"
+  },
+  "login": {
+    "subtitle": "Organize your daily routines",
+    "google": "Continue with Google",
+    "or": "or",
+    "guest": "Continue without an account"
+  },
+  "welcome": {
+    "message": "Welcome to your moment! Your routine, your essence, your rhythm. What shall we do to shine today?"
+  },
+  "about": {
+    "text": "PlanLizz was created by a young woman passionate about aesthetics and organization. This is an inclusive space where all styles are welcome to plan your routine with lightness and self-care. 🎀"
+  },
+  "nav": {
+    "home": "Home",
+    "explore": "Explore",
+    "analysis": "Analysis",
+    "settings": "Settings"
+  },
+  "days": {
+    "sun": "S",
+    "mon": "M",
+    "tue": "T",
+    "wed": "W",
+    "thu": "T",
+    "fri": "F",
+    "sat": "S"
+  },
+  "dayLabels": {
+    "sun": "Sun",
+    "mon": "Mon",
+    "tue": "Tue",
+    "wed": "Wed",
+    "thu": "Thu",
+    "fri": "Fri",
+    "sat": "Sat"
+  },
+  "iconPicker": {
+    "title": "Change icon",
+    "cancel": "Cancel",
+    "done": "Done",
+    "search": "Search icons"
+  },
+  "iconCategories": {
+    "recent": "Recent",
+    "morning": "Morning",
+    "afternoonNight": "Afternoon/Night",
+    "health": "Health",
+    "learn": "Learn",
+    "work": "Work",
+    "professions": "Professions",
+    "family": "Family",
+    "babyChild": "Baby/Child",
+    "beauty": "Beauty",
+    "cooking": "Cooking",
+    "houseTasks": "House Tasks",
+    "vehicles": "Vehicles",
+    "exercise": "Exercise",
+    "leisure": "Leisure",
+    "snacksDrinks": "Snacks/Drinks",
+    "pets": "Pets",
+    "electronics": "Electronics",
+    "commerce": "Commerce",
+    "music": "Music",
+    "religion": "Religion"
+  },
+  "suggestedRoutines": {
+    "morningWellness": "Morning Wellness",
+    "eveningWindDown": "Evening Wind Down",
+    "workoutRoutine": "Workout Routine",
+    "studySession": "Study Session",
+    "selfCareSunday": "Self-Care Sunday",
+    "drinkWater": "Drink water",
+    "stretch": "Stretch",
+    "skincare": "Skincare",
+    "breakfast": "Breakfast",
+    "journaling": "Journaling",
+    "noScreens": "No screens",
+    "readBook": "Read a book",
+    "meditation": "Meditation",
+    "warmUp": "Warm up",
+    "strengthTraining": "Strength training",
+    "cardio": "Cardio",
+    "coolDown": "Cool down",
+    "proteinShake": "Protein shake",
+    "reviewNotes": "Review notes",
+    "practiceProblems": "Practice problems",
+    "flashcards": "Flashcards",
+    "shortBreak": "Short break",
+    "faceMask": "Face mask",
+    "bubbleBath": "Bubble bath",
+    "mealPrep": "Meal prep",
+    "planWeek": "Plan the week"
+  },
+  "tutorial": {
+    "step1Title": "Create a Routine ✨",
+    "step1Desc": "Tap the pink (+) button to create your first routine!",
+    "step2Title": "Build Your Routine 📋",
+    "step2Desc": "Add tasks with icons, timers, and custom names.",
+    "step3Title": "View All Routines 📂",
+    "step3Desc": "Use the list icon in the top corner to see all your routines.",
+    "step4Title": "Reorder Tasks ↕️",
+    "step4Desc": "Press and drag the ≡ icon next to each task to change the order.",
+    "step5Title": "Start the Timer ⏱️",
+    "step5Desc": "Press 'Start' to begin your routine timer.",
+    "skip": "Skip",
+    "gotIt": "Got it!",
+    "finish": "Let's go!"
+  },
+  "sounds": {
+    "none": "None 🔇",
+    "arrow": "Arrow 🏹",
+    "bark": "Bark 🐶",
+    "birds": "Birds 🐦",
+    "correctDing": "Correct ✅",
+    "ding": "Ding 🔔",
+    "meow": "Meow 🐾",
+    "pop": "Pop 🎈",
+    "successDing": "Success ✨",
+    "whistle": "Whistle 😙"
+  }
+}

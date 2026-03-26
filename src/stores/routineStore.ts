@@ -1,0 +1,134 @@
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+import { Routine, Task, TabType } from '@/types/routine';
+
+interface RoutineStore {
+  routines: Routine[];
+  activeTab: TabType;
+  activeRoutineId: string | null;
+  showCreateModal: boolean;
+  showSuccessPopup: boolean;
+  recentIcons: string[];
+  editingRoutineId: string | null;
+  showWelcome: boolean;
+  setActiveTab: (tab: TabType) => void;
+  setActiveRoutine: (id: string | null) => void;
+  setShowCreateModal: (show: boolean) => void;
+  setShowSuccessPopup: (show: boolean) => void;
+  addRoutine: (routine: Routine) => void;
+  updateRoutine: (routine: Routine) => void;
+  deleteRoutine: (id: string) => void;
+  duplicateRoutine: (id: string) => void;
+  toggleTask: (routineId: string, taskId: string) => void;
+  resetRoutineTasks: (routineId: string) => void;
+  addRecentIcon: (url: string) => void;
+  setEditingRoutineId: (id: string | null) => void;
+  setShowWelcome: (show: boolean) => void;
+  duplicateTask: (routineId: string, taskId: string) => void;
+  deleteTask: (routineId: string, taskId: string) => void;
+  addTaskToRoutine: (routineId: string, task: Task) => void;
+  updateTaskInRoutine: (routineId: string, task: Task) => void;
+  reorderTasks: (routineId: string, taskIds: string[]) => void;
+}
+
+const MAX_RECENT_ICONS = 20;
+
+export const useRoutineStore = create<RoutineStore>()(
+  persist(
+    (set, get) => ({
+      routines: [],
+      activeTab: 'home',
+      activeRoutineId: null,
+      showCreateModal: false,
+      showSuccessPopup: false,
+      recentIcons: [],
+      editingRoutineId: null,
+      showWelcome: false,
+      setActiveTab: (tab) => set({ activeTab: tab }),
+      setActiveRoutine: (id) => set({ activeRoutineId: id }),
+      setShowCreateModal: (show) => set({ showCreateModal: show }),
+      setShowSuccessPopup: (show) => set({ showSuccessPopup: show }),
+      setEditingRoutineId: (id) => set({ editingRoutineId: id }),
+      setShowWelcome: (show) => set({ showWelcome: show }),
+      addRoutine: (routine) => set((s) => ({ routines: [...s.routines, routine] })),
+      updateRoutine: (routine) => set((s) => ({
+        routines: s.routines.map(r => r.id === routine.id ? routine : r)
+      })),
+      deleteRoutine: (id) => set((s) => ({ routines: s.routines.filter(r => r.id !== id) })),
+      duplicateRoutine: (id) => set((s) => {
+        const original = s.routines.find(r => r.id === id);
+        if (!original) return s;
+        const copy: Routine = {
+          ...original,
+          id: crypto.randomUUID(),
+          name: `${original.name} (cópia)`,
+          tasks: original.tasks.map(t => ({ ...t, id: crypto.randomUUID(), completed: false })),
+        };
+        return { routines: [...s.routines, copy] };
+      }),
+      toggleTask: (routineId, taskId) => {
+        set((s) => {
+          const routines = s.routines.map(r => {
+            if (r.id !== routineId) return r;
+            const tasks = r.tasks.map(t => t.id === taskId ? { ...t, completed: !t.completed } : t);
+            return { ...r, tasks };
+          });
+          
+          const routine = routines.find(r => r.id === routineId);
+          const allDone = routine?.tasks.every(t => t.completed);
+          
+          return { routines, showSuccessPopup: allDone || false };
+        });
+      },
+      resetRoutineTasks: (routineId) => set((s) => ({
+        routines: s.routines.map(r => r.id === routineId 
+          ? { ...r, tasks: r.tasks.map(t => ({ ...t, completed: false })) } 
+          : r
+        )
+      })),
+      addRecentIcon: (url) => set((s) => {
+        const cleaned = s.recentIcons.filter(i => i && i.startsWith('http'));
+        const filtered = cleaned.filter(i => i !== url);
+        return { recentIcons: [url, ...filtered].slice(0, MAX_RECENT_ICONS) };
+      }),
+      duplicateTask: (routineId, taskId) => set((s) => ({
+        routines: s.routines.map(r => {
+          if (r.id !== routineId) return r;
+          const taskIdx = r.tasks.findIndex(t => t.id === taskId);
+          if (taskIdx === -1) return r;
+          const original = r.tasks[taskIdx];
+          const copy = { ...original, id: crypto.randomUUID(), completed: false };
+          const tasks = [...r.tasks];
+          tasks.splice(taskIdx + 1, 0, copy);
+          return { ...r, tasks };
+        })
+      })),
+      deleteTask: (routineId, taskId) => set((s) => ({
+        routines: s.routines.map(r => {
+          if (r.id !== routineId) return r;
+          return { ...r, tasks: r.tasks.filter(t => t.id !== taskId) };
+        })
+      })),
+      addTaskToRoutine: (routineId, task) => set((s) => ({
+        routines: s.routines.map(r => {
+          if (r.id !== routineId) return r;
+          return { ...r, tasks: [...r.tasks, task] };
+        })
+      })),
+      updateTaskInRoutine: (routineId, task) => set((s) => ({
+        routines: s.routines.map(r => {
+          if (r.id !== routineId) return r;
+          return { ...r, tasks: r.tasks.map(t => t.id === task.id ? task : t) };
+        })
+      })),
+      reorderTasks: (routineId, taskIds) => set((s) => ({
+        routines: s.routines.map(r => {
+          if (r.id !== routineId) return r;
+          const reordered = taskIds.map(id => r.tasks.find(t => t.id === id)).filter(Boolean) as Task[];
+          return { ...r, tasks: reordered };
+        })
+      })),
+    }),
+    { name: 'planlizz-routines' }
+  )
+);
