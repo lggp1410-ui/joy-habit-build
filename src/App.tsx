@@ -57,7 +57,7 @@ function AppContent() {
   const { isAuthenticated, loading, continueAsGuest, user } = useAuth();
   const { setShowWelcome } = useRoutineStore();
   const [prevAuth, setPrevAuth] = useState(false);
-  const { saveToDb } = useRecentIconsSync(user?.id);
+  useRecentIconsSync(user?.id);
 
   useEffect(() => {
     if (!prevAuth && isAuthenticated && user) {
