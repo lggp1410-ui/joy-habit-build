@@ -1,114 +1,73 @@
 
 
-## Final Polish & Tutorial System
+## Persistência de Ícones Recentes no Banco de Dados
 
-This plan covers all 13 items. Due to the scope, implementation will be split into logical groups.
+### Problema
+Os ícones recentes são armazenados apenas no `localStorage` via Zustand persist. Ao limpar cache ou trocar de dispositivo, os dados são perdidos.
 
-### 1. Timer Header Fix (RoutineDetail.tsx)
-Line 28: `endM = (startM + totalMinutes) % 60` is wrong when totalMinutes has fractional values (tasks with seconds). Fix: use `Math.floor(totalMinutes)` for the end time calculation. Also the `totalMinutes` sum from tasks with sub-minute durations produces decimals.
+### Solução
+Criar uma tabela `user_preferences` no banco de dados para armazenar os ícones recentes por usuário, com sincronização bidirecional (local ↔ DB).
 
+---
+
+### Etapas
+
+**1. Criar tabela `user_preferences`**
+- Migração SQL com colunas: `id (uuid PK)`, `user_id (uuid FK auth.users, unique)`, `recent_icons (text[])`, `updated_at (timestamptz)`
+- RLS: usuários autenticados leem/escrevem apenas seus próprios dados
+- Upsert on conflict para simplificar a lógica
+
+**2. Criar hook `useRecentIconsSync`**
+- Ao fazer login (usuário autenticado), carregar `recent_icons` do banco e mergear com os locais (DB tem prioridade, sem duplicatas)
+- Ao adicionar um ícone recente, salvar no Zustand store (imediato) e fazer upsert no banco em background
+- Para usuários guest, manter comportamento atual (apenas localStorage)
+
+**3. Atualizar `routineStore.ts`**
+- Adicionar action `setRecentIcons(icons: string[])` para substituir a lista inteira (usado na carga do DB)
+- Manter `addRecentIcon` existente
+
+**4. Integrar no `IconPicker.tsx`**
+- Chamar o hook `useRecentIconsSync` dentro do IconPicker (ou no `AppContent`)
+- Nenhuma mudança visual necessária
+
+**5. Integrar no fluxo de auth**
+- No `AppContent` ou componente raiz, chamar o hook para que a sincronização ocorra ao login
+
+---
+
+### Detalhes Técnicos
+
+```sql
+CREATE TABLE public.user_preferences (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL UNIQUE,
+  recent_icons text[] DEFAULT '{}',
+  updated_at timestamptz DEFAULT now()
+);
+
+ALTER TABLE public.user_preferences ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users read own preferences"
+  ON public.user_preferences FOR SELECT
+  TO authenticated USING (auth.uid() = user_id);
+
+CREATE POLICY "Users upsert own preferences"
+  ON public.user_preferences FOR INSERT
+  TO authenticated WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users update own preferences"
+  ON public.user_preferences FOR UPDATE
+  TO authenticated USING (auth.uid() = user_id);
 ```
-const totalMinutesRaw = routine.tasks.reduce((sum, t) => sum + (t.duration || 1), 0);
-const totalMinutes = Math.round(totalMinutesRaw);
-const endH = Math.floor((startH * 60 + startM + totalMinutes) / 60) % 24;
-const endM = (startM + totalMinutes) % 60;
-```
 
-### 2. Gallery Cleanup (IconPicker.tsx + useAirtableIcons.ts)
-- In `useAirtableIcons.ts`: filter icons with empty/invalid URLs before returning
-- In `IconPicker.tsx`: add `onError` handler on `<img>` tags to hide broken images (set display:none or filter out)
-- Clean `recentIcons` in store: already filters non-http URLs
+**Hook `useRecentIconsSync`:**
+- On mount (if authenticated): fetch from DB → merge with local → `setRecentIcons`
+- On `addRecentIcon`: after local update, debounced upsert to DB (300ms)
+- Handles offline gracefully (local-first, syncs when online)
 
-### 3. Drag & Drop Reorder (RoutineDetail.tsx + routineStore.ts)
-- Add `GripVertical` (lucide) icon before each task's icon circle
-- Implement touch-based drag reorder using `onTouchStart/Move/End` on the grip handle
-- Add `reorderTasks(routineId: string, taskIds: string[])` action to store
-- Visual feedback: translate the dragged item, swap positions on move
-
-### 4. Localized Icon Search (IconPicker.tsx)
-The Airtable filenames are in Portuguese. For other languages, add a keyword translation map in the edge function that maps Portuguese filenames to translated keywords. Simpler approach: search against both the `filename` and the translated `category name`, and add a small translation map for common icon terms in `IconPicker.tsx` that maps search terms from other languages to Portuguese equivalents.
-
-### 5. Visual Spacing (RoutineDetail.tsx)
-- Increase gap between task items: add `space-y-3` or `mb-3` between task rows
-- Increase padding on the rest-time divider from `py-2` to `py-3`
-
-### 6. Explore Preview (ExploreScreen.tsx)
-- Add state `previewRoutine` to track which suggested routine is being previewed
-- Clicking a routine card sets `previewRoutine` instead of immediately adopting
-- Show a bottom-sheet modal listing the tasks (icon + name + duration) with "Adopt" and "Close" buttons
-
-### 7. Sound Feedback Fix
-The file `Pássaros.mp3` exists in `public/sounds/`. The issue is likely URL encoding of the special character `á`. Fix:
-- Rename the file to `Passaros.mp3` (no accents) in public/sounds
-- Update references in `completionSound.ts` and `SettingsScreen.tsx`
-- Alternatively, encode the path properly: `/sounds/P%C3%A1ssaros.mp3`
-- Sound preview on selection already works in `handleSoundSelect` -- just fix the path
-
-### 8. Interactive Tutorial (New: TutorialOverlay.tsx)
-- Create `TutorialOverlay.tsx` with 5 steps, each highlighting a UI element:
-  - Step 1: (+) FAB button -- "Tap here to create a new routine"
-  - Step 2: Creating routines -- "Add tasks with icons, timer, and names"
-  - Step 3: List icon (top-right) -- "View all your routines here"
-  - Step 4: Grip handle (=) -- "Drag to reorder your tasks"
-  - Step 5: Start button -- "Press to start the timer"
-- Each step: pastel pink tooltip bubble with arrow pointing to element
-- Buttons: "Skip" (closes) and "Got it!" (next step)
-- Store `planlizz-tutorial-done` in localStorage
-- Show automatically on first visit (after login/guest)
-- Render in `HomeScreen.tsx` or `Index.tsx`
-
-### 9. "View Tutorial" in Settings (SettingsScreen.tsx)
-- Add a `HelpCircle` icon item in the preferences section
-- On click: remove `planlizz-tutorial-done` from localStorage, navigate to home tab, trigger tutorial
-- Add i18n key: `settings.viewTutorial`
-
-### 10. Icons Not Loading After Reopening (useAirtableIcons.ts)
-Airtable attachment URLs are temporary (expire after ~2 hours). The 24h cache stores expired URLs. Fix:
-- Reduce cache TTL to 1 hour
-- On cache hit, still do background refresh (already does this)
-- Add `onError` on all icon `<img>` tags to trigger re-fetch or hide
-- In the PWA workbox config, add runtime caching for Airtable CDN URLs
-
-### 11. PWA Offline Support (vite.config.ts + main.tsx)
-- Already has `VitePWA` configured with workbox
-- Add runtime caching for Airtable CDN: `urlPattern: /^https:\/\/.*airtable.*\/.*$/i` with `CacheFirst` + expiration
-- Fix `main.tsx`: remove manual `/sw.js` registration (conflicts with VitePWA auto-registration)
-- Add iframe/preview guard per PWA guidelines:
-  ```
-  const isInIframe = window.self !== window.top;
-  const isPreviewHost = window.location.hostname.includes('id-preview--');
-  if (isPreviewHost || isInIframe) { unregister SWs }
-  ```
-- Add `devOptions: { enabled: false }` to VitePWA config
-
-### 12. Bug-Free Assurance
-- All fixes above address known bugs
-- Timer calculation fix (item 1)
-- Sound path fix (item 7)
-- Icon loading fix (items 2, 10)
-- SW registration fix (item 11)
-
-### 13. Google Login
-Login code already uses `lovable.auth.signInWithOAuth('google', ...)` correctly. The PWA config has `navigateFallbackDenylist: [/^\/~oauth/]`. This should work. No changes needed unless testing reveals issues.
-
-### Files to Create/Modify
-
-| File | Action |
-|------|--------|
-| `src/components/TutorialOverlay.tsx` | New -- tutorial tooltip component |
-| `src/components/RoutineDetail.tsx` | Fix timer calc, add drag handles, spacing |
-| `src/components/IconPicker.tsx` | Broken icon filtering, localized search |
-| `src/hooks/useAirtableIcons.ts` | Reduce cache TTL, filter invalid URLs |
-| `src/components/screens/ExploreScreen.tsx` | Add preview modal |
-| `src/components/screens/SettingsScreen.tsx` | Add "View Tutorial", fix sound path |
-| `src/components/screens/HomeScreen.tsx` | Integrate TutorialOverlay |
-| `src/stores/routineStore.ts` | Add reorderTasks action |
-| `src/utils/completionSound.ts` | Fix Pássaros path |
-| `src/main.tsx` | Fix SW registration with iframe guard |
-| `vite.config.ts` | Add runtime caching, devOptions |
-| `src/i18n/locales/pt-BR.json` | Add tutorial + help keys |
-| `src/i18n/locales/en.json` | Add tutorial + help keys |
-| `src/i18n/locales/fr.json` | Add tutorial + help keys |
-| `src/i18n/locales/ja.json` | Add tutorial + help keys |
-| `src/i18n/locales/ko.json` | Add tutorial + help keys |
+**Files to create/modify:**
+- Migration SQL (new table)
+- `src/hooks/useRecentIconsSync.ts` (new)
+- `src/stores/routineStore.ts` (add `setRecentIcons`)
+- `src/App.tsx` (call sync hook in `AppContent`)
 
