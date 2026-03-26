@@ -8,6 +8,15 @@ export function useRecentIconsSync(userId: string | undefined) {
   const { recentIcons, setRecentIcons } = useRoutineStore();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasSyncedRef = useRef(false);
+  const prevUserIdRef = useRef<string | undefined>(undefined);
+
+  // Reset sync flag when user changes
+  useEffect(() => {
+    if (prevUserIdRef.current !== userId) {
+      hasSyncedRef.current = false;
+      prevUserIdRef.current = userId;
+    }
+  }, [userId]);
 
   // Load from DB on login and merge with local
   useEffect(() => {
@@ -49,21 +58,19 @@ export function useRecentIconsSync(userId: string | undefined) {
     loadFromDb();
   }, [userId, setRecentIcons]);
 
-  // Reset sync flag when user changes
+  // Auto-save when recentIcons change (after initial sync)
   useEffect(() => {
-    hasSyncedRef.current = false;
-  }, [userId]);
+    if (!userId || !hasSyncedRef.current) return;
 
-  // Debounced save to DB
-  const saveToDb = useCallback((icons: string[]) => {
-    if (!userId) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      upsertToDb(userId, icons);
+      upsertToDb(userId, recentIcons);
     }, 500);
-  }, [userId]);
 
-  return { saveToDb };
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [recentIcons, userId]);
 }
 
 async function upsertToDb(userId: string, icons: string[]) {
