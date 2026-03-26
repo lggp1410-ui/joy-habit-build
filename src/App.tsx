@@ -4,6 +4,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { useAuth } from "@/hooks/useAuth";
+import { useRecentIconsSync } from "@/hooks/useRecentIconsSync";
 import { useRoutineStore } from "@/stores/routineStore";
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -56,6 +57,7 @@ function AppContent() {
   const { isAuthenticated, loading, continueAsGuest, user } = useAuth();
   const { setShowWelcome } = useRoutineStore();
   const [prevAuth, setPrevAuth] = useState(false);
+  useRecentIconsSync(user?.id);
 
   useEffect(() => {
     if (!prevAuth && isAuthenticated && user) {
