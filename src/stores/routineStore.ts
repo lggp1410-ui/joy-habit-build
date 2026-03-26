@@ -24,6 +24,7 @@ interface RoutineStore {
   addRecentIcon: (url: string) => void;
   setEditingRoutineId: (id: string | null) => void;
   setShowWelcome: (show: boolean) => void;
+  setRecentIcons: (icons: string[]) => void;
   duplicateTask: (routineId: string, taskId: string) => void;
   deleteTask: (routineId: string, taskId: string) => void;
   addTaskToRoutine: (routineId: string, task: Task) => void;
@@ -50,6 +51,7 @@ export const useRoutineStore = create<RoutineStore>()(
       setShowSuccessPopup: (show) => set({ showSuccessPopup: show }),
       setEditingRoutineId: (id) => set({ editingRoutineId: id }),
       setShowWelcome: (show) => set({ showWelcome: show }),
+      setRecentIcons: (icons) => set({ recentIcons: icons }),
       addRoutine: (routine) => set((s) => ({ routines: [...s.routines, routine] })),
       updateRoutine: (routine) => set((s) => ({
         routines: s.routines.map(r => r.id === routine.id ? routine : r)
