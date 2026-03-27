@@ -5,7 +5,6 @@ import { useRoutineStore } from '@/stores/routineStore';
 import { RoutineCard } from '@/components/RoutineCard';
 import { RoutineDetail } from '@/components/RoutineDetail';
 import { useState, useEffect, useMemo } from 'react';
-import { useState, useEffect, useMemo } from 'react';
 
 function useCurrentDate() {
   const [date, setDate] = useState(new Date());
