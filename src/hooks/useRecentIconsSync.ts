@@ -2,8 +2,6 @@ import { useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useRoutineStore } from '@/stores/routineStore';
 
-const MAX_RECENT_ICONS = 100;
-
 export function useRecentIconsSync(userId: string | undefined) {
   const { recentIcons, setRecentIcons } = useRoutineStore();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -40,8 +38,7 @@ export function useRecentIconsSync(userId: string | undefined) {
 
         // Merge: DB first, then local, deduplicated
         const merged = [...new Set([...dbIcons, ...localIcons])]
-          .filter(url => url && url.startsWith('http'))
-          .slice(0, MAX_RECENT_ICONS);
+          .filter(url => url && url.startsWith('http'));
 
         setRecentIcons(merged);
         hasSyncedRef.current = true;

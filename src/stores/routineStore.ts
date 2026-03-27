@@ -33,7 +33,7 @@ interface RoutineStore {
   reorderTasks: (routineId: string, taskIds: string[]) => void;
 }
 
-const MAX_RECENT_ICONS = 100;
+
 
 export const useRoutineStore = create<RoutineStore>()(
   persist(
@@ -93,7 +93,7 @@ export const useRoutineStore = create<RoutineStore>()(
       addRecentIcon: (url) => set((s) => {
         const cleaned = s.recentIcons.filter(i => i && i.startsWith('http'));
         const filtered = cleaned.filter(i => i !== url);
-        return { recentIcons: [url, ...filtered].slice(0, MAX_RECENT_ICONS) };
+        return { recentIcons: [url, ...filtered] };
       }),
       duplicateTask: (routineId, taskId) => set((s) => ({
         routines: s.routines.map(r => {
