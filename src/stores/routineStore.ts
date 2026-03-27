@@ -25,6 +25,7 @@ interface RoutineStore {
   setEditingRoutineId: (id: string | null) => void;
   setShowWelcome: (show: boolean) => void;
   setRecentIcons: (icons: string[]) => void;
+  setRoutines: (routines: Routine[]) => void;
   duplicateTask: (routineId: string, taskId: string) => void;
   deleteTask: (routineId: string, taskId: string) => void;
   addTaskToRoutine: (routineId: string, task: Task) => void;
@@ -32,7 +33,7 @@ interface RoutineStore {
   reorderTasks: (routineId: string, taskIds: string[]) => void;
 }
 
-const MAX_RECENT_ICONS = 20;
+const MAX_RECENT_ICONS = 100;
 
 export const useRoutineStore = create<RoutineStore>()(
   persist(
@@ -52,6 +53,7 @@ export const useRoutineStore = create<RoutineStore>()(
       setEditingRoutineId: (id) => set({ editingRoutineId: id }),
       setShowWelcome: (show) => set({ showWelcome: show }),
       setRecentIcons: (icons) => set({ recentIcons: icons }),
+      setRoutines: (routines) => set({ routines }),
       addRoutine: (routine) => set((s) => ({ routines: [...s.routines, routine] })),
       updateRoutine: (routine) => set((s) => ({
         routines: s.routines.map(r => r.id === routine.id ? routine : r)

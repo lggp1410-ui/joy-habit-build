@@ -5,6 +5,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { useAuth } from "@/hooks/useAuth";
 import { useRecentIconsSync } from "@/hooks/useRecentIconsSync";
+import { useRoutinesSync } from "@/hooks/useRoutinesSync";
 import { useRoutineStore } from "@/stores/routineStore";
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -58,6 +59,7 @@ function AppContent() {
   const { setShowWelcome } = useRoutineStore();
   const [prevAuth, setPrevAuth] = useState(false);
   useRecentIconsSync(user?.id);
+  useRoutinesSync(user?.id);
 
   useEffect(() => {
     if (!prevAuth && isAuthenticated && user) {

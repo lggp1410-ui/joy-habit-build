@@ -18,18 +18,21 @@ export type Database = {
         Row: {
           id: string
           recent_icons: string[] | null
+          routines: Json | null
           updated_at: string | null
           user_id: string
         }
         Insert: {
           id?: string
           recent_icons?: string[] | null
+          routines?: Json | null
           updated_at?: string | null
           user_id: string
         }
         Update: {
           id?: string
           recent_icons?: string[] | null
+          routines?: Json | null
           updated_at?: string | null
           user_id?: string
         }
