@@ -147,8 +147,7 @@ export function HomeScreen() {
         {activeRoutineId && <RoutineDetail />}
       </AnimatePresence>
 
-      {/* Tutorial overlay - first visit */}
-      <TutorialOverlay />
+      {/* Tutorial moved to CreateRoutineModal */}
     </div>
   );
 }
