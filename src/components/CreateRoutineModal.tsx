@@ -471,7 +471,7 @@ export function CreateRoutineModal() {
         selectedIcon={newTaskIcon}
       />
 
-      <TutorialOverlay />
+      {showCreateModal && !editingRoutineId && <TutorialOverlay />}
     </>
   );
 }
