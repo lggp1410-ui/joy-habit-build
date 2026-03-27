@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useRoutineStore } from '@/stores/routineStore';
 import { RoutineCard } from '@/components/RoutineCard';
 import { RoutineDetail } from '@/components/RoutineDetail';
-import { TutorialOverlay } from '@/components/TutorialOverlay';
+import { useState, useEffect, useMemo } from 'react';
 import { useState, useEffect, useMemo } from 'react';
 
 function useCurrentDate() {
