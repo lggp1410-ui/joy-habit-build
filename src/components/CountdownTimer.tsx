@@ -70,8 +70,10 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(fu
   const handleComplete = () => {
     if (!currentTask) return;
     onCompleteTask(currentTask.id);
-    if (currentTaskIndex < incompleteTasks.length - 1) {
-      setCurrentTaskIndex(prev => prev + 1);
+    // Don't increment currentTaskIndex — the incompleteTasks list shrinks by 1
+    // so the same index now points to the next task
+    if (incompleteTasks.length > 1) {
+      // Force re-render with fresh timer for the next task
       setIsRunning(true);
       setIsNegative(false);
       setSoundPlayed(false);

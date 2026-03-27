@@ -6,6 +6,7 @@ import { useRoutineStore } from '@/stores/routineStore';
 import { IconPicker } from './IconPicker';
 import { WheelPicker } from './WheelPicker';
 import { Task, Routine, formatDuration, isImageIcon } from '@/types/routine';
+import { TutorialOverlay } from './TutorialOverlay';
 import defaultTaskIcon from '@/assets/default-task-icon.png';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
@@ -469,6 +470,8 @@ export function CreateRoutineModal() {
         onSelect={setNewTaskIcon}
         selectedIcon={newTaskIcon}
       />
+
+      <TutorialOverlay />
     </>
   );
 }
