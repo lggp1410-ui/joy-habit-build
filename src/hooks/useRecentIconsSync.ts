@@ -16,44 +16,56 @@ export function useRecentIconsSync(userId: string | undefined) {
     }
   }, [userId]);
 
-  // Load from DB on login and merge with local
+  const syncFromDb = useCallback(async () => {
+    if (!userId) return;
+    try {
+      const { data, error } = await supabase
+        .from('user_preferences')
+        .select('recent_icons')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Failed to load recent icons:', error);
+        return;
+      }
+
+      const dbIcons: string[] = (data?.recent_icons as string[]) ?? [];
+      const localIcons = useRoutineStore.getState().recentIcons;
+
+      const merged = [...new Set([...dbIcons, ...localIcons])]
+        .filter(url => url && url.startsWith('http'));
+
+      setRecentIcons(merged);
+      hasSyncedRef.current = true;
+
+      if (localIcons.some(icon => !dbIcons.includes(icon))) {
+        await upsertToDb(userId, merged);
+      }
+    } catch (err) {
+      console.error('Recent icons sync error:', err);
+    }
+  }, [userId, setRecentIcons]);
+
+  // Load from DB on login
   useEffect(() => {
     if (!userId || hasSyncedRef.current) return;
+    syncFromDb();
+  }, [userId, syncFromDb]);
 
-    const loadFromDb = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('user_preferences')
-          .select('recent_icons')
-          .eq('user_id', userId)
-          .maybeSingle();
-
-        if (error) {
-          console.error('Failed to load recent icons:', error);
-          return;
-        }
-
-        const dbIcons: string[] = (data?.recent_icons as string[]) ?? [];
-        const localIcons = useRoutineStore.getState().recentIcons;
-
-        // Merge: DB first, then local, deduplicated
-        const merged = [...new Set([...dbIcons, ...localIcons])]
-          .filter(url => url && url.startsWith('http'));
-
-        setRecentIcons(merged);
-        hasSyncedRef.current = true;
-
-        // If local had icons not in DB, persist the merged result
-        if (localIcons.some(icon => !dbIcons.includes(icon))) {
-          await upsertToDb(userId, merged);
-        }
-      } catch (err) {
-        console.error('Recent icons sync error:', err);
+  // Re-sync when coming back online
+  useEffect(() => {
+    if (!userId) return;
+    const handleOnline = () => {
+      if (hasSyncedRef.current) {
+        upsertToDb(userId, useRoutineStore.getState().recentIcons);
+      } else {
+        syncFromDb();
       }
     };
-
-    loadFromDb();
-  }, [userId, setRecentIcons]);
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, [userId, syncFromDb]);
 
   // Auto-save when recentIcons change (after initial sync)
   useEffect(() => {
@@ -72,6 +84,7 @@ export function useRecentIconsSync(userId: string | undefined) {
 
 async function upsertToDb(userId: string, icons: string[]) {
   try {
+    if (!navigator.onLine) return;
     const { error } = await supabase
       .from('user_preferences')
       .upsert(

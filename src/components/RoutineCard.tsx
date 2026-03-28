@@ -99,10 +99,9 @@ export function RoutineCard({ routine }: RoutineCardProps) {
             className={`w-8 h-8 rounded-full bg-[hsl(0,0%,96%)] dark:bg-muted flex items-center justify-center overflow-hidden transition-all ${task.completed ? 'opacity-100' : 'opacity-40'}`}
           >
             {isImageIcon(task.icon) ? (
-              <img src={task.icon} alt="" className="w-5 h-5 object-contain pointer-events-none" draggable={false} />
-            ) : (
-              <span className="text-sm">{task.icon}</span>
-            )}
+              <img src={task.icon} alt="" className="w-5 h-5 object-contain pointer-events-none" draggable={false} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).parentElement!.querySelector('.fallback-icon')?.classList.remove('hidden'); }} />
+            ) : null}
+            <span className={`text-sm fallback-icon ${isImageIcon(task.icon) ? 'hidden' : ''}`}>📋</span>
           </div>
         ))}
         {routine.tasks.length > 6 && (

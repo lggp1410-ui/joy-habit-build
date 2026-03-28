@@ -56,10 +56,10 @@ export default defineConfig(({ mode }) => ({
           },
           {
             urlPattern: /^https:\/\/.*airtable.*\/.*/i,
-            handler: "CacheFirst",
+            handler: "StaleWhileRevalidate",
             options: {
               cacheName: "airtable-icons-cache",
-              expiration: { maxEntries: 500, maxAgeSeconds: 60 * 60 * 2 },
+              expiration: { maxEntries: 2000, maxAgeSeconds: 60 * 60 * 24 * 30 },
             },
           },
         ],
