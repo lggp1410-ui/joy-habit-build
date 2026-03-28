@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useRoutineStore } from '@/stores/routineStore';
 import { Routine } from '@/types/routine';
@@ -17,45 +17,57 @@ export function useRoutinesSync(userId: string | undefined) {
     }
   }, [userId]);
 
-  // Load from DB on login and merge with local
+  const syncFromDb = useCallback(async () => {
+    if (!userId) return;
+    try {
+      const { data, error } = await supabase
+        .from('user_preferences')
+        .select('routines')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Failed to load routines:', error);
+        return;
+      }
+
+      const dbRoutines: Routine[] = (data?.routines as unknown as Routine[]) ?? [];
+      const localRoutines = useRoutineStore.getState().routines;
+
+      const dbIds = new Set(dbRoutines.map(r => r.id));
+      const localOnly = localRoutines.filter(r => !dbIds.has(r.id));
+      const merged = [...dbRoutines, ...localOnly];
+
+      setRoutines(merged);
+      hasSyncedRef.current = true;
+
+      if (localOnly.length > 0) {
+        await upsertToDb(userId, merged);
+      }
+    } catch (err) {
+      console.error('Routines sync error:', err);
+    }
+  }, [userId, setRoutines]);
+
+  // Load from DB on login
   useEffect(() => {
     if (!userId || hasSyncedRef.current) return;
+    syncFromDb();
+  }, [userId, syncFromDb]);
 
-    const loadFromDb = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('user_preferences')
-          .select('routines')
-          .eq('user_id', userId)
-          .maybeSingle();
-
-        if (error) {
-          console.error('Failed to load routines:', error);
-          return;
-        }
-
-        const dbRoutines: Routine[] = (data?.routines as unknown as Routine[]) ?? [];
-        const localRoutines = useRoutineStore.getState().routines;
-
-        // Merge: DB takes priority, then add any local-only routines
-        const dbIds = new Set(dbRoutines.map(r => r.id));
-        const localOnly = localRoutines.filter(r => !dbIds.has(r.id));
-        const merged = [...dbRoutines, ...localOnly];
-
-        setRoutines(merged);
-        hasSyncedRef.current = true;
-
-        // If local had routines not in DB, persist the merged result
-        if (localOnly.length > 0) {
-          await upsertToDb(userId, merged);
-        }
-      } catch (err) {
-        console.error('Routines sync error:', err);
+  // Re-sync when coming back online
+  useEffect(() => {
+    if (!userId) return;
+    const handleOnline = () => {
+      if (hasSyncedRef.current) {
+        upsertToDb(userId, useRoutineStore.getState().routines);
+      } else {
+        syncFromDb();
       }
     };
-
-    loadFromDb();
-  }, [userId, setRoutines]);
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, [userId, syncFromDb]);
 
   // Auto-save when routines change (after initial sync)
   useEffect(() => {
@@ -74,6 +86,7 @@ export function useRoutinesSync(userId: string | undefined) {
 
 async function upsertToDb(userId: string, routines: Routine[]) {
   try {
+    if (!navigator.onLine) return;
     const { error } = await supabase
       .from('user_preferences')
       .upsert(
