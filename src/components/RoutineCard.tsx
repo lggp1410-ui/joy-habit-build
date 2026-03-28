@@ -101,7 +101,7 @@ export function RoutineCard({ routine }: RoutineCardProps) {
             {isImageIcon(task.icon) ? (
               <img src={task.icon} alt="" className="w-5 h-5 object-contain pointer-events-none" draggable={false} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).parentElement!.querySelector('.fallback-icon')?.classList.remove('hidden'); }} />
             ) : null}
-            <span className={`text-sm fallback-icon ${isImageIcon(task.icon) ? 'hidden' : ''}`}>📋</span>
+            <span className={`text-sm fallback-icon ${isImageIcon(task.icon) ? 'hidden' : ''}`}>{isImageIcon(task.icon) ? '📋' : task.icon}</span>
           </div>
         ))}
         {routine.tasks.length > 6 && (

@@ -291,7 +291,7 @@ export function CreateRoutineModal() {
                           {isImageIcon(task.icon) ? (
                             <img src={task.icon} alt="" className="w-6 h-6 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).parentElement!.querySelector('.fallback-icon')?.classList.remove('hidden'); }} />
                           ) : null}
-                          <span className={`text-xl fallback-icon ${isImageIcon(task.icon) ? 'hidden' : ''}`}>📋</span>
+                          <span className={`text-xl fallback-icon ${isImageIcon(task.icon) ? 'hidden' : ''}`}>{isImageIcon(task.icon) ? '📋' : task.icon}</span>
                         </div>
                         <div className="flex-1 min-w-0">
                           <span className="text-sm font-medium block truncate">{task.name}</span>

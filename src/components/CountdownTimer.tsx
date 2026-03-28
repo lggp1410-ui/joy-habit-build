@@ -138,7 +138,7 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(fu
               {isImageIcon(task.icon) ? (
                 <img src={task.icon} alt="" className="w-6 h-6 object-contain pointer-events-none" draggable={false} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).parentElement!.querySelector('.fallback-icon')?.classList.remove('hidden'); }} />
               ) : null}
-              <span className={`text-xl fallback-icon ${isImageIcon(task.icon) ? 'hidden' : ''}`}>📋</span>
+              <span className={`text-xl fallback-icon ${isImageIcon(task.icon) ? 'hidden' : ''}`}>{isImageIcon(task.icon) ? '📋' : task.icon}</span>
             </div>
             <div className="flex-1">
               <span className="font-medium text-sm">{task.name}</span>
