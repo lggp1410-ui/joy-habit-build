@@ -159,7 +159,7 @@ export function CreateRoutineModal() {
       reminder,
       autoContinue,
       restTime: 0,
-      type: editingRoutineId ? undefined : createType,
+      type: editingRoutineId ? (routines.find(r => r.id === editingRoutineId)?.type || 'routine') : createType,
     };
 
     if (editingRoutineId) {
@@ -213,7 +213,7 @@ export function CreateRoutineModal() {
             >
               <div className="mx-auto" style={{ width: '88%' }}>
                 <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-display text-xl">{t('create.title')}</h2>
+                  <h2 className="text-display text-xl">{createType === 'moment' && !isEditing ? t('create.titleMoment', 'Criar Momento') : t('create.title')}</h2>
                   <button onClick={reset} className="p-1.5 rounded-full hover:bg-muted transition-colors">
                     <X className="w-5 h-5 text-muted-foreground" />
                   </button>

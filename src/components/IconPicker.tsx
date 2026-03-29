@@ -1,10 +1,11 @@
 import { useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Loader2, Clock, Search, Pencil, Trash2 } from 'lucide-react';
+import { X, Loader2, Clock, Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAirtableIcons } from '@/hooks/useAirtableIcons';
 import { ICON_CATEGORIES, isImageIcon } from '@/types/routine';
 import { useRoutineStore } from '@/stores/routineStore';
+import { urlToBase64 } from '@/utils/iconBase64';
 
 // Map category names to i18n keys
 const CATEGORY_I18N_MAP: Record<string, string> = {
@@ -30,7 +31,12 @@ const CATEGORY_I18N_MAP: Record<string, string> = {
   'Religião': 'iconCategories.religion',
 };
 
-// Localized search keyword map: translated term -> Portuguese filename keywords
+// Normalize: remove accents for comparison
+function normalize(str: string): string {
+  return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
+// Expanded localized search keyword map
 const SEARCH_TRANSLATIONS: Record<string, string[]> = {
   // English
   'bed': ['cama'], 'water': ['água', 'water'], 'sleep': ['dormir', 'cama'], 'food': ['comida', 'alimento'],
@@ -49,8 +55,42 @@ const SEARCH_TRANSLATIONS: Record<string, string[]> = {
   'chat': ['gato'], 'chien': ['cachorro'], 'voiture': ['carro'], 'bébé': ['bebê'],
   // Japanese
   'ベッド': ['cama'], '水': ['água'], '食べる': ['comer'], '飲む': ['beber'], '犬': ['cachorro'], '猫': ['gato'],
-  // Korean  
+  // Korean
   '침대': ['cama'], '물': ['água'], '먹다': ['comer'], '마시다': ['beber'], '개': ['cachorro'], '고양이': ['gato'],
+  // Portuguese contextual (Item 12)
+  'batata': ['french fries', 'potato', 'batata', 'fries', 'lanche'],
+  'escola': ['school', 'estudo', 'estudar', 'learn', 'caderno', 'livro'],
+  'vovó': ['grandmother', 'família', 'avó', 'avô', 'family'],
+  'vovo': ['grandmother', 'família', 'avó', 'avô', 'family'],
+  'skincare': ['beleza', 'rosto', 'face', 'pele', 'cuidado', 'skin'],
+  'pele': ['skincare', 'beleza', 'rosto', 'face', 'skin'],
+  'cama': ['bed', 'dormir', 'sleep', 'cama'],
+  'refeição': ['meal', 'comida', 'food', 'almoço', 'jantar', 'prato'],
+  'refeicao': ['meal', 'comida', 'food', 'almoço', 'jantar', 'prato'],
+  'prato': ['plate', 'comida', 'food', 'refeição', 'meal'],
+  'estudo': ['study', 'estudar', 'learn', 'escola', 'livro', 'caderno'],
+  'dever': ['homework', 'estudo', 'school', 'tarefa'],
+  'treino': ['workout', 'exercise', 'gym', 'academia', 'treinar'],
+  'academia': ['gym', 'treino', 'exercise', 'workout'],
+  'banho': ['bath', 'shower', 'chuveiro', 'lavar'],
+  'remédio': ['medicine', 'remedio', 'saúde', 'health', 'pill'],
+  'remedio': ['medicine', 'remédio', 'saúde', 'health', 'pill'],
+  'compras': ['shopping', 'comércio', 'loja', 'store'],
+  'loja': ['store', 'shopping', 'comércio', 'compras'],
+  'cozinhar': ['cook', 'culinária', 'kitchen', 'cozinha'],
+  'cozinha': ['kitchen', 'cook', 'culinária', 'cozinhar'],
+  'passear': ['walk', 'caminhar', 'caminhada', 'passeio'],
+  'brincar': ['play', 'jogar', 'criança', 'baby', 'lazer'],
+  'rezar': ['pray', 'oração', 'religião', 'church', 'igreja'],
+  'igreja': ['church', 'rezar', 'oração', 'religião'],
+  'correr': ['run', 'corrida', 'exercise', 'treino'],
+  'nadar': ['swim', 'piscina', 'natação'],
+  'dente': ['teeth', 'brush', 'escova', 'toothbrush'],
+  'cabelo': ['hair', 'beleza', 'beauty'],
+  'maquiagem': ['makeup', 'beleza', 'beauty', 'rosto'],
+  'roupa': ['clothes', 'vestir', 'dress'],
+  'limpar': ['clean', 'limpeza', 'casa', 'house'],
+  'lavar': ['wash', 'limpar', 'roupa', 'louça'],
 };
 
 interface IconPickerProps {
@@ -68,6 +108,7 @@ export function IconPicker({ isOpen, onClose, onSelect, selectedIcon }: IconPick
   const [searchQuery, setSearchQuery] = useState('');
   const [tempSelected, setTempSelected] = useState<string | null>(null);
   const [brokenUrls, setBrokenUrls] = useState<Set<string>>(new Set());
+  const [isConverting, setIsConverting] = useState(false);
 
   const hasAirtableData = airtableCategories.length > 0;
 
@@ -78,7 +119,6 @@ export function IconPicker({ isOpen, onClose, onSelect, selectedIcon }: IconPick
 
   const activeAirtableCat = airtableCategories.find(c => c.name === activeCategory);
 
-  // Clean recent icons (only valid image icons)
   const cleanRecentIcons = useMemo(() =>
     recentIcons.filter(url => url && isImageIcon(url) && !brokenUrls.has(url)),
   [recentIcons, brokenUrls]);
@@ -87,16 +127,17 @@ export function IconPicker({ isOpen, onClose, onSelect, selectedIcon }: IconPick
     setBrokenUrls(prev => new Set(prev).add(url));
   }, []);
 
-  // Search across all icons with localized keywords
+  // Search across all icons with localized keywords + accent-insensitive
   const searchResults = useMemo(() => {
     if (!searchQuery.trim()) return null;
-    const query = searchQuery.toLowerCase();
+    const queryNorm = normalize(searchQuery);
     
     // Get Portuguese equivalents for the search term
-    const ptKeywords: string[] = [query];
+    const ptKeywords: string[] = [queryNorm];
     Object.entries(SEARCH_TRANSLATIONS).forEach(([key, values]) => {
-      if (key.toLowerCase().includes(query) || query.includes(key.toLowerCase())) {
-        ptKeywords.push(...values);
+      const keyNorm = normalize(key);
+      if (keyNorm.includes(queryNorm) || queryNorm.includes(keyNorm)) {
+        ptKeywords.push(...values.map(normalize));
       }
     });
 
@@ -104,8 +145,8 @@ export function IconPicker({ isOpen, onClose, onSelect, selectedIcon }: IconPick
     airtableCategories.forEach(cat => {
       cat.icons.forEach(icon => {
         if (!icon.url || brokenUrls.has(icon.url)) return;
-        const filename = icon.filename.toLowerCase();
-        const matches = ptKeywords.some(kw => filename.includes(kw.toLowerCase()));
+        const filenameNorm = normalize(icon.filename);
+        const matches = ptKeywords.some(kw => filenameNorm.includes(kw));
         if (matches) {
           results.push(icon);
         }
@@ -118,11 +159,20 @@ export function IconPicker({ isOpen, onClose, onSelect, selectedIcon }: IconPick
     setTempSelected(icon);
   };
 
-  const handleDone = () => {
+  const handleDone = async () => {
     const finalIcon = tempSelected || selectedIcon;
     if (finalIcon) {
-      addRecentIcon(finalIcon);
-      onSelect(finalIcon);
+      setIsConverting(true);
+      try {
+        // Convert to Base64 before saving
+        const base64Icon = await urlToBase64(finalIcon);
+        addRecentIcon(base64Icon);
+        onSelect(base64Icon);
+      } catch {
+        addRecentIcon(finalIcon);
+        onSelect(finalIcon);
+      }
+      setIsConverting(false);
     }
     setSearchQuery('');
     setTempSelected(null);
@@ -191,8 +241,8 @@ export function IconPicker({ isOpen, onClose, onSelect, selectedIcon }: IconPick
                 {t('iconPicker.cancel')}
               </button>
               <h3 className="text-display text-lg">{t('iconPicker.title')}</h3>
-              <button onClick={handleDone} className="text-sm text-primary font-semibold">
-                {t('iconPicker.done')}
+              <button onClick={handleDone} disabled={isConverting} className="text-sm text-primary font-semibold disabled:opacity-50">
+                {isConverting ? '...' : t('iconPicker.done')}
               </button>
             </div>
 
