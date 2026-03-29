@@ -111,6 +111,15 @@
   "about": {
     "text": "PlanLizz was created by a young woman passionate about aesthetics and organization. This is an inclusive space where all styles are welcome to plan your routine with lightness and self-care. 🎀"
   },
+  "saved": {
+    "title": "Saved Moments",
+    "subtitle": "Templates to reuse",
+    "empty": "No saved moments yet",
+    "emptyHint": "Unique moments will be saved here automatically",
+    "moment": "Moment",
+    "useToday": "Use Today",
+    "setDays": "Set Days"
+  },
   "nav": {
     "home": "Home",
     "explore": "Explore",
