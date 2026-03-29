@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useRoutineStore } from '@/stores/routineStore';
+import { getLocalRecentIcons, setLocalRecentIcons } from '@/lib/localDb';
 
 export function useRecentIconsSync(userId: string | undefined) {
   const { recentIcons, setRecentIcons } = useRoutineStore();
@@ -8,13 +9,23 @@ export function useRecentIconsSync(userId: string | undefined) {
   const hasSyncedRef = useRef(false);
   const prevUserIdRef = useRef<string | undefined>(undefined);
 
-  // Reset sync flag when user changes
   useEffect(() => {
     if (prevUserIdRef.current !== userId) {
       hasSyncedRef.current = false;
       prevUserIdRef.current = userId;
     }
   }, [userId]);
+
+  // Load from IndexedDB immediately on mount
+  useEffect(() => {
+    getLocalRecentIcons().then(localIdb => {
+      if (localIdb.length > 0) {
+        const current = useRoutineStore.getState().recentIcons;
+        const merged = [...new Set([...localIdb, ...current])];
+        setRecentIcons(merged);
+      }
+    });
+  }, [setRecentIcons]);
 
   const syncFromDb = useCallback(async () => {
     if (!userId) return;
@@ -33,10 +44,10 @@ export function useRecentIconsSync(userId: string | undefined) {
       const dbIcons: string[] = (data?.recent_icons as string[]) ?? [];
       const localIcons = useRoutineStore.getState().recentIcons;
 
-      const merged = [...new Set([...dbIcons, ...localIcons])]
-        .filter(url => url && url.startsWith('http'));
+      const merged = [...new Set([...dbIcons, ...localIcons])];
 
       setRecentIcons(merged);
+      await setLocalRecentIcons(merged);
       hasSyncedRef.current = true;
 
       if (localIcons.some(icon => !dbIcons.includes(icon))) {
@@ -47,13 +58,11 @@ export function useRecentIconsSync(userId: string | undefined) {
     }
   }, [userId, setRecentIcons]);
 
-  // Load from DB on login
   useEffect(() => {
     if (!userId || hasSyncedRef.current) return;
     syncFromDb();
   }, [userId, syncFromDb]);
 
-  // Re-sync when coming back online
   useEffect(() => {
     if (!userId) return;
     const handleOnline = () => {
@@ -67,9 +76,11 @@ export function useRecentIconsSync(userId: string | undefined) {
     return () => window.removeEventListener('online', handleOnline);
   }, [userId, syncFromDb]);
 
-  // Auto-save when recentIcons change (after initial sync)
   useEffect(() => {
     if (!userId || !hasSyncedRef.current) return;
+
+    // Save to IndexedDB immediately
+    setLocalRecentIcons(recentIcons);
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {

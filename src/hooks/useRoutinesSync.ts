@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useRoutineStore } from '@/stores/routineStore';
 import { Routine } from '@/types/routine';
+import { getLocalRoutines, setLocalRoutines } from '@/lib/localDb';
 
 export function useRoutinesSync(userId: string | undefined) {
   const { routines, setRoutines } = useRoutineStore();
@@ -9,13 +10,24 @@ export function useRoutinesSync(userId: string | undefined) {
   const hasSyncedRef = useRef(false);
   const prevUserIdRef = useRef<string | undefined>(undefined);
 
-  // Reset sync flag when user changes
   useEffect(() => {
     if (prevUserIdRef.current !== userId) {
       hasSyncedRef.current = false;
       prevUserIdRef.current = userId;
     }
   }, [userId]);
+
+  // Load from IndexedDB immediately on mount
+  useEffect(() => {
+    getLocalRoutines().then(localIdb => {
+      if (localIdb.length > 0) {
+        const current = useRoutineStore.getState().routines;
+        const idbIds = new Set(localIdb.map(r => r.id));
+        const extra = current.filter(r => !idbIds.has(r.id));
+        setRoutines([...localIdb, ...extra]);
+      }
+    });
+  }, [setRoutines]);
 
   const syncFromDb = useCallback(async () => {
     if (!userId) return;
@@ -39,6 +51,7 @@ export function useRoutinesSync(userId: string | undefined) {
       const merged = [...dbRoutines, ...localOnly];
 
       setRoutines(merged);
+      await setLocalRoutines(merged);
       hasSyncedRef.current = true;
 
       if (localOnly.length > 0) {
@@ -49,13 +62,11 @@ export function useRoutinesSync(userId: string | undefined) {
     }
   }, [userId, setRoutines]);
 
-  // Load from DB on login
   useEffect(() => {
     if (!userId || hasSyncedRef.current) return;
     syncFromDb();
   }, [userId, syncFromDb]);
 
-  // Re-sync when coming back online
   useEffect(() => {
     if (!userId) return;
     const handleOnline = () => {
@@ -69,9 +80,11 @@ export function useRoutinesSync(userId: string | undefined) {
     return () => window.removeEventListener('online', handleOnline);
   }, [userId, syncFromDb]);
 
-  // Auto-save when routines change (after initial sync)
   useEffect(() => {
     if (!userId || !hasSyncedRef.current) return;
+
+    // Save to IndexedDB immediately
+    setLocalRoutines(routines);
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
