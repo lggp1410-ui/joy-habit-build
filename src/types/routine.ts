@@ -29,13 +29,16 @@ export interface Routine {
   reminder?: boolean;
   autoContinue?: boolean;
   restTime?: number; // global rest time in minutes
+  type?: 'routine' | 'moment'; // default: 'routine'
+  archived?: boolean;
+  archivedAt?: string; // ISO date string
 }
 
 export function isImageIcon(icon: string): boolean {
   return icon.startsWith('http') || icon.startsWith('/') || icon.startsWith('data:') || icon.includes('/assets/');
 }
 
-export type TabType = 'home' | 'explore' | 'analysis' | 'settings';
+export type TabType = 'home' | 'explore' | 'analysis' | 'settings' | 'saved';
 
 export const DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'] as const;
 export const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
