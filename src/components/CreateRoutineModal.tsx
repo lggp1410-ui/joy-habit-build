@@ -144,7 +144,7 @@ export function CreateRoutineModal() {
     setOpenMenuTaskId(null);
   };
 
-  const { createType } = useRoutineStore();
+  
 
   const handleSave = () => {
     if (!name.trim() || tasks.length === 0) return;
