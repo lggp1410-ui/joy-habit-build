@@ -8,7 +8,17 @@
     "noRoutines": "No routines yet",
     "noRoutinesHint": "Tap the + button to create your first routine",
     "createRoutine": "Create a routine",
-    "allRoutines": "All Routines"
+    "allRoutines": "All Routines",
+    "filterAll": "View All",
+    "filterRoutines": "Routines Only",
+    "filterMoments": "Moments Only",
+    "createMenu": {
+      "title": "What do you want to create?",
+      "routine": "Routine",
+      "routineDesc": "Recurring",
+      "moment": "Unique Moment",
+      "momentDesc": "One-time/special"
+    }
   },
   "explore": {
     "title": "Explore",
@@ -23,7 +33,10 @@
     "completion": "Completion",
     "perfectDays": "Perfect Days",
     "routineBreakdown": "Routine Breakdown",
-    "noDataHint": "Create routines to see your analysis here"
+    "noDataHint": "Create routines to see your analysis here",
+    "weeklyHistory": "Weekly History",
+    "routines": "Routines",
+    "moments": "Moments"
   },
   "settings": {
     "title": "Settings",
@@ -48,6 +61,7 @@
   },
   "create": {
     "title": "Create Routine",
+    "titleMoment": "Create Moment",
     "routineName": "Routine name",
     "namePlaceholder": "e.g. Morning Routine",
     "days": "Days",

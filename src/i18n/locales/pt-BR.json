@@ -111,6 +111,15 @@
   "about": {
     "text": "O PlanLizz foi criado por uma jovem apaixonada por estética e organização. Este é um espaço inclusivo onde todos os estilos são bem-vindos para planejar sua rotina com leveza e autocuidado. 🎀"
   },
+  "saved": {
+    "title": "Momentos Salvos",
+    "subtitle": "Templates para reutilizar",
+    "empty": "Nenhum momento salvo ainda",
+    "emptyHint": "Momentos únicos serão salvos aqui automaticamente",
+    "moment": "Momento",
+    "useToday": "Usar Hoje",
+    "setDays": "Definir Dias"
+  },
   "nav": {
     "home": "Início",
     "explore": "Explorar",
