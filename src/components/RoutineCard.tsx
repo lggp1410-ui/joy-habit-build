@@ -16,6 +16,7 @@ export function RoutineCard({ routine }: RoutineCardProps) {
   const completedCount = routine.tasks.filter(t => t.completed).length;
   const progress = routine.tasks.length > 0 ? (completedCount / routine.tasks.length) * 100 : 0;
   const allDone = completedCount === routine.tasks.length && routine.tasks.length > 0;
+  const isMoment = routine.type === 'moment';
 
   const handleEdit = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -46,7 +47,14 @@ export function RoutineCard({ routine }: RoutineCardProps) {
     >
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1">
-          <h3 className="text-display text-base">{routine.name}</h3>
+          <div className="flex items-center gap-2">
+            {isMoment && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[hsl(210,80%,90%)] text-[hsl(210,60%,40%)] font-medium shrink-0">
+                {t('saved.moment', 'Momento')}
+              </span>
+            )}
+            <h3 className="text-display text-base">{routine.name}</h3>
+          </div>
           <div className="flex items-center gap-1.5 mt-1 text-muted-foreground text-xs">
             <Clock className="w-3.5 h-3.5" />
             <span className="text-numbers">{routine.time}</span>
@@ -99,9 +107,10 @@ export function RoutineCard({ routine }: RoutineCardProps) {
             className={`w-8 h-8 rounded-full bg-[hsl(0,0%,96%)] dark:bg-muted flex items-center justify-center overflow-hidden transition-all ${task.completed ? 'opacity-100' : 'opacity-40'}`}
           >
             {isImageIcon(task.icon) ? (
-              <img src={task.icon} alt="" className="w-5 h-5 object-contain pointer-events-none" draggable={false} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).parentElement!.querySelector('.fallback-icon')?.classList.remove('hidden'); }} />
-            ) : null}
-            <span className={`text-sm fallback-icon ${isImageIcon(task.icon) ? 'hidden' : ''}`}>{isImageIcon(task.icon) ? '📋' : task.icon}</span>
+              <img src={task.icon} alt="" className="w-5 h-5 object-contain pointer-events-none" draggable={false} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+            ) : (
+              <span className="text-sm">{task.icon}</span>
+            )}
           </div>
         ))}
         {routine.tasks.length > 6 && (
@@ -113,7 +122,7 @@ export function RoutineCard({ routine }: RoutineCardProps) {
       <div className="flex items-center gap-3">
         <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
           <motion.div
-            className={`h-full rounded-full ${allDone ? 'bg-secondary' : 'gradient-primary'}`}
+            className={`h-full rounded-full ${allDone ? 'bg-secondary' : isMoment ? 'bg-[hsl(210,70%,70%)]' : 'gradient-primary'}`}
             initial={{ width: 0 }}
             animate={{ width: `${progress}%` }}
             transition={{ duration: 0.4, ease: 'easeOut' }}

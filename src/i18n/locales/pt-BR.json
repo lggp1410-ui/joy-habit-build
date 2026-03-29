@@ -8,7 +8,17 @@
     "noRoutines": "Nenhuma rotina ainda",
     "noRoutinesHint": "Toque no botão + para criar sua primeira rotina",
     "createRoutine": "Criar uma rotina",
-    "allRoutines": "Todas as Rotinas"
+    "allRoutines": "Todas as Rotinas",
+    "filterAll": "Ver Tudo",
+    "filterRoutines": "Apenas Rotinas",
+    "filterMoments": "Apenas Momentos",
+    "createMenu": {
+      "title": "O que você quer criar?",
+      "routine": "Rotina",
+      "routineDesc": "Repetitiva",
+      "moment": "Momento Único",
+      "momentDesc": "Especial/único"
+    }
   },
   "explore": {
     "title": "Explorar",
@@ -23,7 +33,10 @@
     "completion": "Conclusão",
     "perfectDays": "Dias Perfeitos",
     "routineBreakdown": "Detalhamento",
-    "noDataHint": "Crie rotinas para ver sua análise aqui"
+    "noDataHint": "Crie rotinas para ver sua análise aqui",
+    "weeklyHistory": "Histórico Semanal",
+    "routines": "Rotinas",
+    "moments": "Momentos"
   },
   "settings": {
     "title": "Configurações",
@@ -48,6 +61,7 @@
   },
   "create": {
     "title": "Criar Rotina",
+    "titleMoment": "Criar Momento",
     "routineName": "Nome da rotina",
     "namePlaceholder": "ex. Rotina Matinal",
     "days": "Dias",
@@ -96,6 +110,15 @@
   },
   "about": {
     "text": "O PlanLizz foi criado por uma jovem apaixonada por estética e organização. Este é um espaço inclusivo onde todos os estilos são bem-vindos para planejar sua rotina com leveza e autocuidado. 🎀"
+  },
+  "saved": {
+    "title": "Momentos Salvos",
+    "subtitle": "Templates para reutilizar",
+    "empty": "Nenhum momento salvo ainda",
+    "emptyHint": "Momentos únicos serão salvos aqui automaticamente",
+    "moment": "Momento",
+    "useToday": "Usar Hoje",
+    "setDays": "Definir Dias"
   },
   "nav": {
     "home": "Início",

@@ -8,7 +8,17 @@
     "noRoutines": "Pas encore de routines",
     "noRoutinesHint": "Appuyez sur + pour créer votre première routine",
     "createRoutine": "Créer une routine",
-    "allRoutines": "Toutes les Routines"
+    "allRoutines": "Toutes les Routines",
+    "filterAll": "Tout voir",
+    "filterRoutines": "Routines uniquement",
+    "filterMoments": "Moments uniquement",
+    "createMenu": {
+      "title": "Que voulez-vous créer ?",
+      "routine": "Routine",
+      "routineDesc": "Récurrente",
+      "moment": "Moment Unique",
+      "momentDesc": "Spécial/unique"
+    }
   },
   "explore": {
     "title": "Explorer",
@@ -23,7 +33,10 @@
     "completion": "Achèvement",
     "perfectDays": "Jours Parfaits",
     "routineBreakdown": "Détail des Routines",
-    "noDataHint": "Créez des routines pour voir votre analyse ici"
+    "noDataHint": "Créez des routines pour voir votre analyse ici",
+    "weeklyHistory": "Historique Hebdomadaire",
+    "routines": "Routines",
+    "moments": "Moments"
   },
   "settings": {
     "title": "Paramètres",
@@ -48,6 +61,7 @@
   },
   "create": {
     "title": "Créer une Routine",
+    "titleMoment": "Créer un Moment",
     "routineName": "Nom de la routine",
     "namePlaceholder": "ex. Routine Matinale",
     "days": "Jours",
@@ -96,6 +110,15 @@
   },
   "about": {
     "text": "PlanLizz a été créé par une jeune femme passionnée par l'esthétique et l'organisation. C'est un espace inclusif où tous les styles sont les bienvenus pour planifier votre routine avec légèreté et soin de soi. 🎀"
+  },
+  "saved": {
+    "title": "Moments Sauvegardés",
+    "subtitle": "Templates à réutiliser",
+    "empty": "Aucun moment sauvegardé",
+    "emptyHint": "Les moments uniques seront sauvegardés ici automatiquement",
+    "moment": "Moment",
+    "useToday": "Utiliser Aujourd'hui",
+    "setDays": "Définir les Jours"
   },
   "nav": {
     "home": "Accueil",

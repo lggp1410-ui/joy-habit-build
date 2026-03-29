@@ -11,6 +11,9 @@ interface RoutineStore {
   recentIcons: string[];
   editingRoutineId: string | null;
   showWelcome: boolean;
+  showCreateMenu: boolean;
+  createType: 'routine' | 'moment';
+  homeFilter: 'all' | 'routines' | 'moments';
   setActiveTab: (tab: TabType) => void;
   setActiveRoutine: (id: string | null) => void;
   setShowCreateModal: (show: boolean) => void;
@@ -31,9 +34,13 @@ interface RoutineStore {
   addTaskToRoutine: (routineId: string, task: Task) => void;
   updateTaskInRoutine: (routineId: string, task: Task) => void;
   reorderTasks: (routineId: string, taskIds: string[]) => void;
+  setShowCreateMenu: (show: boolean) => void;
+  setCreateType: (type: 'routine' | 'moment') => void;
+  setHomeFilter: (filter: 'all' | 'routines' | 'moments') => void;
+  archiveRoutine: (id: string) => void;
+  reactivateRoutine: (id: string) => void;
+  convertToRoutine: (id: string, days: string[]) => void;
 }
-
-
 
 export const useRoutineStore = create<RoutineStore>()(
   persist(
@@ -46,6 +53,9 @@ export const useRoutineStore = create<RoutineStore>()(
       recentIcons: [],
       editingRoutineId: null,
       showWelcome: false,
+      showCreateMenu: false,
+      createType: 'routine',
+      homeFilter: 'all',
       setActiveTab: (tab) => set({ activeTab: tab }),
       setActiveRoutine: (id) => set({ activeRoutineId: id }),
       setShowCreateModal: (show) => set({ showCreateModal: show }),
@@ -54,6 +64,9 @@ export const useRoutineStore = create<RoutineStore>()(
       setShowWelcome: (show) => set({ showWelcome: show }),
       setRecentIcons: (icons) => set({ recentIcons: icons }),
       setRoutines: (routines) => set({ routines }),
+      setShowCreateMenu: (show) => set({ showCreateMenu: show }),
+      setCreateType: (type) => set({ createType: type }),
+      setHomeFilter: (filter) => set({ homeFilter: filter }),
       addRoutine: (routine) => set((s) => ({ routines: [...s.routines, routine] })),
       updateRoutine: (routine) => set((s) => ({
         routines: s.routines.map(r => r.id === routine.id ? routine : r)
@@ -91,7 +104,7 @@ export const useRoutineStore = create<RoutineStore>()(
         )
       })),
       addRecentIcon: (url) => set((s) => {
-        const cleaned = s.recentIcons.filter(i => i && i.startsWith('http'));
+        const cleaned = s.recentIcons.filter(i => i && (i.startsWith('http') || i.startsWith('data:')));
         const filtered = cleaned.filter(i => i !== url);
         return { recentIcons: [url, ...filtered] };
       }),
@@ -131,6 +144,24 @@ export const useRoutineStore = create<RoutineStore>()(
           const reordered = taskIds.map(id => r.tasks.find(t => t.id === id)).filter(Boolean) as Task[];
           return { ...r, tasks: reordered };
         })
+      })),
+      archiveRoutine: (id) => set((s) => ({
+        routines: s.routines.map(r => r.id === id
+          ? { ...r, archived: true, archivedAt: new Date().toISOString() }
+          : r
+        )
+      })),
+      reactivateRoutine: (id) => set((s) => ({
+        routines: s.routines.map(r => r.id === id
+          ? { ...r, archived: false, archivedAt: undefined, tasks: r.tasks.map(t => ({ ...t, completed: false })) }
+          : r
+        )
+      })),
+      convertToRoutine: (id, days) => set((s) => ({
+        routines: s.routines.map(r => r.id === id
+          ? { ...r, type: 'routine', days, archived: false, archivedAt: undefined }
+          : r
+        )
       })),
     }),
     { name: 'planlizz-routines' }

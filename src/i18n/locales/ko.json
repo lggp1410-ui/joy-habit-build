@@ -8,7 +8,17 @@
     "noRoutines": "아직 루틴이 없어요",
     "noRoutinesHint": "+를 눌러 첫 번째 루틴을 만들어 보세요",
     "createRoutine": "루틴 만들기",
-    "allRoutines": "모든 루틴"
+    "allRoutines": "모든 루틴",
+    "filterAll": "전체 보기",
+    "filterRoutines": "루틴만",
+    "filterMoments": "모먼트만",
+    "createMenu": {
+      "title": "무엇을 만들까요?",
+      "routine": "루틴",
+      "routineDesc": "반복",
+      "moment": "유니크 모먼트",
+      "momentDesc": "특별/일회성"
+    }
   },
   "explore": {
     "title": "탐색",
@@ -23,7 +33,10 @@
     "completion": "완료율",
     "perfectDays": "완벽한 날",
     "routineBreakdown": "루틴 상세",
-    "noDataHint": "루틴을 만들어 분석을 확인하세요"
+    "noDataHint": "루틴을 만들어 분석을 확인하세요",
+    "weeklyHistory": "주간 기록",
+    "routines": "루틴",
+    "moments": "모먼트"
   },
   "settings": {
     "title": "설정",
@@ -48,6 +61,7 @@
   },
   "create": {
     "title": "루틴 만들기",
+    "titleMoment": "모먼트 만들기",
     "routineName": "루틴 이름",
     "namePlaceholder": "예: 아침 루틴",
     "days": "요일",
@@ -96,6 +110,15 @@
   },
   "about": {
     "text": "PlanLizz는 미학과 정리에 열정적인 젊은 여성이 만들었습니다. 모든 스타일이 환영받는 포용적인 공간에서 가벼움과 셀프케어로 루틴을 계획하세요. 🎀"
+  },
+  "saved": {
+    "title": "저장된 모먼트",
+    "subtitle": "재사용할 템플릿",
+    "empty": "저장된 모먼트가 없습니다",
+    "emptyHint": "유니크 모먼트는 자동으로 여기에 저장됩니다",
+    "moment": "모먼트",
+    "useToday": "오늘 사용",
+    "setDays": "요일 설정"
   },
   "nav": {
     "home": "홈",

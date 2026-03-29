@@ -1,4 +1,4 @@
-import { Plus, List } from 'lucide-react';
+import { Plus, List, Star, SlidersHorizontal } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { useRoutineStore } from '@/stores/routineStore';
@@ -35,11 +35,12 @@ function getWeekDays(today: Date) {
 }
 
 export function HomeScreen() {
-  const { routines, setShowCreateModal, activeRoutineId } = useRoutineStore();
+  const { routines, setShowCreateModal, activeRoutineId, showCreateMenu, setShowCreateMenu, setCreateType, homeFilter, setHomeFilter, setActiveTab, archiveRoutine } = useRoutineStore();
   const { t, i18n } = useTranslation();
   const currentDate = useCurrentDate();
   const [selectedDayIndex, setSelectedDayIndex] = useState<number | null>(null);
   const [showAllRoutines, setShowAllRoutines] = useState(false);
+  const [showFilterMenu, setShowFilterMenu] = useState(false);
 
   const weekDays = useMemo(() => getWeekDays(currentDate), [currentDate.toDateString()]);
   const lang = i18n.language;
@@ -50,13 +51,61 @@ export function HomeScreen() {
 
   const todayIndex = weekDays.findIndex(d => d.toDateString() === currentDate.toDateString());
 
+  // Auto-archive moments at day change
+  useEffect(() => {
+    const now = new Date();
+    routines.forEach(r => {
+      if (r.type === 'moment' && !r.archived && r.days.length === 0) {
+        const allDone = r.tasks.length > 0 && r.tasks.every(t => t.completed);
+        if (allDone) {
+          archiveRoutine(r.id);
+        }
+      }
+    });
+
+    // Check every minute for midnight archive
+    const interval = setInterval(() => {
+      const current = new Date();
+      if (current.getHours() === 0 && current.getMinutes() === 0) {
+        const store = useRoutineStore.getState();
+        store.routines.forEach(r => {
+          if (r.type === 'moment' && !r.archived && r.days.length === 0) {
+            store.archiveRoutine(r.id);
+          }
+        });
+      }
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [routines.length]);
+
   const filteredRoutines = useMemo(() => {
-    if (showAllRoutines) return routines;
+    let filtered = routines.filter(r => !r.archived);
+
+    // Type filter
+    if (homeFilter === 'routines') {
+      filtered = filtered.filter(r => (r.type || 'routine') === 'routine');
+    } else if (homeFilter === 'moments') {
+      filtered = filtered.filter(r => r.type === 'moment');
+    }
+
+    if (showAllRoutines) return filtered;
     const dayIdx = selectedDayIndex ?? todayIndex;
-    if (dayIdx < 0) return routines;
+    if (dayIdx < 0) return filtered;
     const dayLabel = dayLabels[dayIdx];
-    return routines.filter(r => r.days.length === 0 || r.days.some(d => d === dayLabel));
-  }, [routines, selectedDayIndex, todayIndex, dayLabels, showAllRoutines]);
+    return filtered.filter(r => r.days.length === 0 || r.days.some(d => d === dayLabel));
+  }, [routines, selectedDayIndex, todayIndex, dayLabels, showAllRoutines, homeFilter]);
+
+  const handleCreateOption = (type: 'routine' | 'moment') => {
+    setCreateType(type);
+    setShowCreateMenu(false);
+    setShowCreateModal(true);
+  };
+
+  const filterLabel = homeFilter === 'all' 
+    ? t('home.filterAll', 'Ver Tudo') 
+    : homeFilter === 'routines' 
+    ? t('home.filterRoutines', 'Rotinas') 
+    : t('home.filterMoments', 'Momentos');
 
   return (
     <div className="min-h-screen pb-24">
@@ -66,12 +115,56 @@ export function HomeScreen() {
           <div>
             <p className="text-sm text-foreground/70 font-medium capitalize">{weekdayName}</p>
           </div>
-          <button
-            onClick={() => setShowAllRoutines(!showAllRoutines)}
-            className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${showAllRoutines ? 'bg-white/40' : 'bg-white/20'}`}
-          >
-            <List className="w-5 h-5 text-foreground" />
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Filter button */}
+            <div className="relative">
+              <button
+                onClick={() => setShowFilterMenu(!showFilterMenu)}
+                className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${homeFilter !== 'all' ? 'bg-white/40' : 'bg-white/20'}`}
+              >
+                <SlidersHorizontal className="w-4.5 h-4.5 text-foreground" />
+              </button>
+              <AnimatePresence>
+                {showFilterMenu && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setShowFilterMenu(false)} />
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.9, y: -5 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.9, y: -5 }}
+                      className="absolute right-0 top-11 z-20 bg-card rounded-xl shadow-lg border border-border py-1 min-w-[160px]"
+                    >
+                      {(['all', 'routines', 'moments'] as const).map(f => (
+                        <button
+                          key={f}
+                          onClick={() => { setHomeFilter(f); setShowFilterMenu(false); }}
+                          className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${homeFilter === f ? 'bg-pink-accent text-foreground font-medium' : 'hover:bg-muted'}`}
+                        >
+                          {f === 'all' ? t('home.filterAll', 'Ver Tudo') : f === 'routines' ? t('home.filterRoutines', 'Apenas Rotinas') : t('home.filterMoments', 'Apenas Momentos')}
+                        </button>
+                      ))}
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Saved (star) button */}
+            <button
+              onClick={() => setActiveTab('saved')}
+              className="w-9 h-9 rounded-full flex items-center justify-center bg-white/20 transition-colors"
+            >
+              <Star className="w-5 h-5 text-foreground" />
+            </button>
+
+            {/* List button */}
+            <button
+              onClick={() => setShowAllRoutines(!showAllRoutines)}
+              className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${showAllRoutines ? 'bg-white/40' : 'bg-white/20'}`}
+            >
+              <List className="w-5 h-5 text-foreground" />
+            </button>
+          </div>
         </div>
 
         {/* Horizontal week calendar */}
@@ -134,19 +227,55 @@ export function HomeScreen() {
         }
       </div>
 
-      {/* Pink FAB */}
-      <motion.button
-        whileTap={{ scale: 0.9 }}
-        onClick={() => setShowCreateModal(true)}
-        className="fixed bottom-20 right-5 z-40 w-14 h-14 bg-primary rounded-full shadow-lg flex items-center justify-center">
-        <Plus className="w-6 h-6 text-primary-foreground" />
-      </motion.button>
+      {/* FAB with balloon menu */}
+      <div className="fixed bottom-20 right-5 z-40">
+        <AnimatePresence>
+          {showCreateMenu && (
+            <>
+              <div className="fixed inset-0 z-30" onClick={() => setShowCreateMenu(false)} />
+              <motion.div
+                initial={{ opacity: 0, y: 10, scale: 0.9 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 10, scale: 0.9 }}
+                className="absolute bottom-16 right-0 z-40 w-56"
+              >
+                {/* Speech bubble */}
+                <div className="bg-pink-accent rounded-2xl p-4 shadow-lg border border-[hsl(350,80%,85%)] relative">
+                  <p className="text-sm font-semibold text-foreground mb-3">{t('home.createMenu.title', 'O que você quer criar?')}</p>
+                  <button
+                    onClick={() => handleCreateOption('routine')}
+                    className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-white/50 transition-colors mb-1.5"
+                  >
+                    <span className="text-sm font-medium">• {t('home.createMenu.routine', 'Rotina')}</span>
+                    <p className="text-xs text-muted-foreground ml-3">{t('home.createMenu.routineDesc', 'Repetitiva')}</p>
+                  </button>
+                  <button
+                    onClick={() => handleCreateOption('moment')}
+                    className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-white/50 transition-colors"
+                  >
+                    <span className="text-sm font-medium">• {t('home.createMenu.moment', 'Momento Único')}</span>
+                    <p className="text-xs text-muted-foreground ml-3">{t('home.createMenu.momentDesc', 'Especial/único')}</p>
+                  </button>
+                  {/* Arrow pointing to FAB */}
+                  <div className="absolute -bottom-2 right-5 w-4 h-4 bg-pink-accent border-r border-b border-[hsl(350,80%,85%)] rotate-45" />
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
+
+        <motion.button
+          whileTap={{ scale: 0.9 }}
+          onClick={() => setShowCreateMenu(!showCreateMenu)}
+          className="w-14 h-14 bg-primary rounded-full shadow-lg flex items-center justify-center"
+        >
+          <Plus className={`w-6 h-6 text-primary-foreground transition-transform ${showCreateMenu ? 'rotate-45' : ''}`} />
+        </motion.button>
+      </div>
 
       <AnimatePresence>
         {activeRoutineId && <RoutineDetail />}
       </AnimatePresence>
-
-      {/* Tutorial moved to CreateRoutineModal */}
     </div>
   );
 }

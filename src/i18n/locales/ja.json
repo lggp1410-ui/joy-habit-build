@@ -8,7 +8,17 @@
     "noRoutines": "ルーティンがありません",
     "noRoutinesHint": "+ボタンをタップして最初のルーティンを作成",
     "createRoutine": "ルーティンを作成",
-    "allRoutines": "すべてのルーティン"
+    "allRoutines": "すべてのルーティン",
+    "filterAll": "すべて表示",
+    "filterRoutines": "ルーティンのみ",
+    "filterMoments": "モーメントのみ",
+    "createMenu": {
+      "title": "何を作成しますか？",
+      "routine": "ルーティン",
+      "routineDesc": "繰り返し",
+      "moment": "ユニークモーメント",
+      "momentDesc": "特別/一回限り"
+    }
   },
   "explore": {
     "title": "探索",
@@ -23,7 +33,10 @@
     "completion": "達成率",
     "perfectDays": "パーフェクトデー",
     "routineBreakdown": "ルーティン詳細",
-    "noDataHint": "ルーティンを作成して分析を確認"
+    "noDataHint": "ルーティンを作成して分析を確認",
+    "weeklyHistory": "週間履歴",
+    "routines": "ルーティン",
+    "moments": "モーメント"
   },
   "settings": {
     "title": "設定",
@@ -48,6 +61,7 @@
   },
   "create": {
     "title": "ルーティンを作成",
+    "titleMoment": "モーメントを作成",
     "routineName": "ルーティン名",
     "namePlaceholder": "例：朝のルーティン",
     "days": "曜日",
@@ -96,6 +110,15 @@
   },
   "about": {
     "text": "PlanLizzは美学と整理整頓に情熱を持つ若い女性によって作られました。すべてのスタイルが歓迎される包括的な空間で、軽やかさとセルフケアでルーティンを計画しましょう。🎀"
+  },
+  "saved": {
+    "title": "保存されたモーメント",
+    "subtitle": "再利用するテンプレート",
+    "empty": "保存されたモーメントはありません",
+    "emptyHint": "ユニークモーメントは自動的にここに保存されます",
+    "moment": "モーメント",
+    "useToday": "今日使う",
+    "setDays": "曜日を設定"
   },
   "nav": {
     "home": "ホーム",

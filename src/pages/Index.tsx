@@ -5,6 +5,7 @@ import { HomeScreen } from '@/components/screens/HomeScreen';
 import { ExploreScreen } from '@/components/screens/ExploreScreen';
 import { AnalysisScreen } from '@/components/screens/AnalysisScreen';
 import { SettingsScreen } from '@/components/screens/SettingsScreen';
+import { SavedScreen } from '@/components/screens/SavedScreen';
 import { useRoutineStore } from '@/stores/routineStore';
 
 const Index = () => {
@@ -16,6 +17,7 @@ const Index = () => {
       {activeTab === 'explore' && <ExploreScreen />}
       {activeTab === 'analysis' && <AnalysisScreen />}
       {activeTab === 'settings' && <SettingsScreen />}
+      {activeTab === 'saved' && <SavedScreen />}
 
       <BottomNav />
       <CreateRoutineModal />
