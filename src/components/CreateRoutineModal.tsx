@@ -20,7 +20,7 @@ const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
 const DEFAULT_TASK_ICON = defaultTaskIcon;
 
 export function CreateRoutineModal() {
-  const { showCreateModal, setShowCreateModal, addRoutine, updateRoutine, routines, editingRoutineId, setEditingRoutineId } = useRoutineStore();
+  const { showCreateModal, setShowCreateModal, addRoutine, updateRoutine, routines, editingRoutineId, setEditingRoutineId, createType } = useRoutineStore();
   const { t } = useTranslation();
   const [name, setName] = useState('');
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
