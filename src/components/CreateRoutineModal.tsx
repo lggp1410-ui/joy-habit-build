@@ -144,6 +144,8 @@ export function CreateRoutineModal() {
     setOpenMenuTaskId(null);
   };
 
+  const { createType } = useRoutineStore();
+
   const handleSave = () => {
     if (!name.trim() || tasks.length === 0) return;
     const time = `${HOURS[hourIndex]}:${MINUTES_60[minuteIndex]}`;
@@ -157,6 +159,7 @@ export function CreateRoutineModal() {
       reminder,
       autoContinue,
       restTime: 0,
+      type: editingRoutineId ? undefined : createType,
     };
 
     if (editingRoutineId) {
