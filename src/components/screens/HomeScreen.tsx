@@ -78,23 +78,7 @@ export function HomeScreen() {
     return () => clearInterval(interval);
   }, [routines.length]);
 
-  // Schedule push notifications for today's routines
-  useEffect(() => {
-    const hasReminders = filteredRoutines.some(r => r.reminder);
-    if (!hasReminders) return;
 
-    requestNotificationPermission().then(granted => {
-      if (!granted) return;
-      clearAllReminders();
-      filteredRoutines.forEach(r => {
-        if (r.reminder && r.time) {
-          scheduleRoutineReminder(r);
-        }
-      });
-    });
-
-    return () => clearAllReminders();
-  }, [filteredRoutines]);
 
   const filteredRoutines = useMemo(() => {
     let filtered = routines.filter(r => !r.archived);
