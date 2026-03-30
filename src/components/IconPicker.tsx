@@ -208,8 +208,11 @@ export function IconPicker({ isOpen, onClose, onSelect, selectedIcon }: IconPick
         <img
           src={url}
           alt={filename}
-          className="w-9 h-9 object-contain pointer-events-none"
-          loading="lazy"
+          className="w-11 h-11 object-contain pointer-events-none"
+          style={{ imageRendering: 'auto' }}
+          loading="eager"
+          decoding="async"
+          crossOrigin="anonymous"
           draggable={false}
           onError={() => handleImageError(url)}
         />

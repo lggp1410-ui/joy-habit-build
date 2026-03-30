@@ -227,5 +227,12 @@
     "pop": "ポップ 🎈",
     "successDing": "成功 ✨",
     "whistle": "ホイッスル 😙"
+  },
+  "timer": {
+    "done": "完了",
+    "restTime": "休憩時間",
+    "skipRest": "休憩をスキップ",
+    "timeUp": "時間切れ！",
+    "inProgress": "タイマー進行中"
   }
 }
