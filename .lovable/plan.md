@@ -1,132 +1,78 @@
 
 
-## Implementação Completa: 12 Itens
+## Fluxo de Descanso no Timer + Qualidade Visual + Notificações + Background Mode
 
-### Visão Geral
-
-Implementar Base64 para ícones selecionados, IndexedDB com Dexie.js, menu de criação com balão, Momentos Únicos, aba Salvas, filtros, análise por bolinhas, e busca multilingue com insensibilidade a acentos.
+### Mudanças
 
 ---
 
-### Grupo 1: Base64 + IndexedDB + Offline (Itens 1-4)
+### 1. Descanso na lista da rotina (Item 1)
+**Já implementado.** O `RoutineDetail.tsx` (linhas 225-233) já exibe a divisória discreta com 🌴 e o tempo de descanso. Nenhuma mudança necessária.
 
-**Problema:** Ícones dependem de URLs temporárias do Airtable que expiram. Ao limpar cache, os ícones somem.
+### 2. Cartão de descanso no Timer (Item 2)
+**`src/components/CountdownTimer.tsx`**
 
-**Solução:**
+Adicionar estado `isResting: boolean` ao timer. Quando o usuário clica "Concluído" numa tarefa que tem `restTime > 0`:
+- Antes de avançar para a próxima tarefa, entrar em modo descanso
+- Exibir um cartão branco arredondado com 🌴 e texto "Tempo de descanso" no lugar da task list preview
+- O timer circular rosa mostra o tempo de descanso, contando regressivamente
+- Ao zerar ou ao clicar "Pular", avança para a próxima tarefa
 
-1. **Conversão Base64 no momento da seleção (IconPicker)**
-   - Quando o usuário seleciona um ícone no `IconPicker`, antes de salvar, converter a URL para Base64 usando `canvas.toDataURL()`
-   - Criar utilitário `src/utils/iconBase64.ts` com função `urlToBase64(url): Promise<string>`
-   - O `addRecentIcon` e a task passam a armazenar `data:image/png;base64,...` em vez de URLs externas
-   - Ícones existentes (URLs) continuam funcionando com fallback
+Lógica no `handleComplete`:
+```
+1. Completar task atual
+2. Verificar restTime da task (task.restTime ?? routine.restTime ?? 0)
+3. Se restTime > 0 → setIsResting(true), setRemaining(restSeconds)
+4. Se restTime === 0 → avançar para próxima task normalmente
+```
 
-2. **IndexedDB com Dexie.js**
-   - Instalar `dexie` como dependência
-   - Criar `src/lib/localDb.ts` com tabelas: `recentIcons` e `routines`
-   - O store Zustand espelha dados no IndexedDB automaticamente
-   - Na inicialização, carregar do IndexedDB primeiro (instantâneo), depois sincronizar com Supabase
+Quando `isResting === true`:
+- O cartão de preview mostra o card de descanso em vez da lista de tasks
+- O botão "Concluído" muda para "Pular descanso"
+- Ao zerar, automaticamente sai do modo descanso e avança para a próxima task
 
-3. **Sync hooks atualizados**
-   - `useRecentIconsSync`: carregar IndexedDB → mostrar → buscar DB → merge → salvar ambos
-   - `useRoutinesSync`: mesma lógica
-   - `isImageIcon()` atualizado para reconhecer `data:` URIs
+### 3. Timer negativo em vermelho (Item 3)
+**Já implementado.** O `CountdownTimer.tsx` já conta negativamente (linhas 48-54) e muda a cor para vermelho claro (linhas 154-156). Nenhuma mudança necessária.
 
-4. **Remoção de dependência externa**
-   - Após salvar como Base64, o ícone "mora" no DB do PlanLizz
-   - URLs do Airtable são usadas apenas na galeria de seleção, nunca persistidas nas rotinas
+### 4. Qualidade visual dos ícones (Item 4)
+**`src/components/IconPicker.tsx`**
 
-**Nota importante:** Base64 de ícones PNG pequenos (~2-5KB cada) é viável. A galeria do Airtable continua usando URLs para navegação, mas ao selecionar, converte para Base64.
+Os ícones da galeria são renderizados como `<img>` com tamanhos fixos (`w-10 h-10`). Para alta definição:
+- Adicionar `loading="eager"` e `decoding="async"` nas imagens da galeria
+- Usar `image-rendering: auto` (CSS) para garantir suavização
+- Renderizar as imagens em tamanho maior no grid (de `w-10 h-10` para `w-12 h-12`) e usar `object-fit: contain`
+- Adicionar `crossOrigin="anonymous"` para melhorar o carregamento
 
----
+### 5. Notificações Push para rotinas (Item 5)
+**`src/components/screens/HomeScreen.tsx`** e novo utilitário
 
-### Grupo 2: Menu + Momentos Únicos + Salvas (Itens 5-9)
+Usar a Web Notifications API (não requer backend):
+- Criar `src/utils/notifications.ts` com funções:
+  - `requestNotificationPermission()`: pede permissão ao usuário
+  - `scheduleRoutineReminder(routine)`: calcula o tempo até o horário da rotina e agenda um `setTimeout` com `new Notification(...)`
+- No `HomeScreen`, ao montar, agendar lembretes para todas as rotinas do dia que têm `reminder: true`
+- Exibir notificação: "🕐 Hora de começar [Nome da Rotina]"
+- Limitação: funciona apenas com a aba aberta ou como PWA instalada
 
-**5. Menu Balão do FAB (+)**
-- `HomeScreen.tsx`: substituir clique direto por toggle de balão
-- Balão rosa pastel (speech bubble) com seta apontando para o FAB
-- Opções: "Rotina" e "Momento Único"
-- Backdrop para fechar
+### 6. Background Mode para o Timer (Item 6)
+**`src/components/CountdownTimer.tsx`**
 
-**6. Lógica de Momentos Únicos**
-- `src/types/routine.ts`: adicionar `type: 'routine' | 'moment'`, `archived?: boolean`, `archivedAt?: string`
-- `CreateRoutineModal.tsx`: quando tipo = momento, dias ficam opcionais (nenhum selecionado por padrão)
-- Mesmo fluxo completo (nome, ícone, horário, tarefas, duração, descanso, timer)
-
-**7. Auto-archive às 23:59**
-- `HomeScreen.tsx`: `useEffect` com intervalo que verifica momentos sem dias
-- Se o dia mudou e o momento foi usado/criado hoje, marcar `archived: true`
-- Momentos arquivados não aparecem na Home
-
-**8. Aba Salvas (Estrela)**
-- Criar `src/components/screens/SavedScreen.tsx`
-- Header da Home: adicionar ícone de Estrela ao lado do ícone de Lista
-- Salvas lista rotinas com `archived: true`
-- Botões: "Usar Hoje" (desarquivar temporariamente) e "Definir Dias" (converter para rotina)
-- Adicionar `'saved'` ao `TabType`
-- `Index.tsx`: renderizar `SavedScreen` quando `activeTab === 'saved'`
-
-**9. Filtro de Visualização**
-- Header da Home: adicionar ícone de Filtro (SlidersHorizontal)
-- Dropdown com 3 opções: "Ver Tudo", "Apenas Rotinas", "Apenas Momentos"
-- Store: `homeFilter: 'all' | 'routines' | 'moments'`
-
----
-
-### Grupo 3: Estabilidade (Item 10)
-
-- Já implementado nos hooks de sync com `try/catch` e `navigator.onLine` listeners
-- IndexedDB garante carregamento instantâneo sem depender da rede
-- Transição online/offline suave
-
----
-
-### Grupo 4: Análise por Bolinhas (Item 11)
-
-**`AnalysisScreen.tsx`:**
-- Adicionar seção "Histórico Semanal" com grid de 7 bolinhas (dom-sáb)
-- Cada bolinha é um SVG circle com:
-  - Preenchimento rosa pastel proporcional ao % de rotinas concluídas naquele dia
-  - Contorno azul pastel proporcional ao % de momentos concluídos
-  - 100% ambos: bolinha rosa cheia com contorno azul
-- Necessita que `routine.type` exista para diferenciar
-
----
-
-### Grupo 5: Busca Multilingue (Item 12)
-
-**`IconPicker.tsx`:**
-- Expandir `SEARCH_TRANSLATIONS` com mapeamentos contextuais:
-  - "Batata" → "french fries", "potato"
-  - "Escola" → "school", "estudo"
-  - "Vovó" → "grandmother", "família"
-  - "Skincare" → "beleza", "rosto"
-- Implementar normalização de acentos: `str.normalize('NFD').replace(/[\u0300-\u036f]/g, '')`
-- Busca compara strings normalizadas (sem acentos) em ambos os lados
-- Adicionar mais keywords em PT para cobrir contextos (Objeto, Tipo, Contexto)
+O timer já usa `setInterval` que para quando a aba perde foco. Para manter precisão:
+- Substituir a lógica baseada em intervalo por timestamps (`Date.now()`)
+- Armazenar `startTime` e `totalDuration`, calcular `remaining = totalDuration - (Date.now() - startTime)`
+- Usar `visibilitychange` event para recalcular ao voltar à aba
+- Usar Web Notifications API para exibir uma notificação persistente enquanto o timer está ativo: "⏱️ [Task] - Timer em andamento"
+- Ao zerar, mostrar notificação: "✅ Tempo esgotado para [Task]"
 
 ---
 
 ### Arquivos a Criar/Modificar
 
-| Arquivo | Ação |
-|---------|------|
-| `src/utils/iconBase64.ts` | **Novo** — converter URL para Base64 |
-| `src/lib/localDb.ts` | **Novo** — Dexie.js IndexedDB |
-| `src/components/screens/SavedScreen.tsx` | **Novo** — tela de momentos salvos |
-| `src/types/routine.ts` | Adicionar `type`, `archived`, `archivedAt` |
-| `src/stores/routineStore.ts` | Novos estados: `showCreateMenu`, `createType`, `homeFilter`, ações de archive |
-| `src/components/screens/HomeScreen.tsx` | Balão FAB, filtros, estrela, auto-archive |
-| `src/components/screens/AnalysisScreen.tsx` | Bolinhas de progresso |
-| `src/components/CreateRoutineModal.tsx` | Suporte a tipo momento, Base64 na seleção |
-| `src/components/IconPicker.tsx` | Base64 conversion, busca multilingue, normalização de acentos |
-| `src/components/RoutineCard.tsx` | Badge visual para tipo |
-| `src/components/BottomNav.tsx` | Sem mudança (Salvas é via header, não bottom nav) |
-| `src/pages/Index.tsx` | Renderizar SavedScreen |
-| `src/hooks/useRecentIconsSync.ts` | IndexedDB layer |
-| `src/hooks/useRoutinesSync.ts` | IndexedDB layer |
-| `src/i18n/locales/*.json` | Novas traduções (5 arquivos) |
-| `package.json` | Adicionar `dexie` |
-
-### Dependência Nova
-- `dexie` (IndexedDB wrapper, ~15KB gzipped)
+| Arquivo | Mudança |
+|---------|---------|
+| `src/components/CountdownTimer.tsx` | Modo descanso com cartão 🌴, lógica de background (timestamps + visibilitychange), notificação ativa |
+| `src/utils/notifications.ts` | **Novo** — Web Notifications API helpers |
+| `src/components/screens/HomeScreen.tsx` | Agendar lembretes push para rotinas do dia |
+| `src/components/IconPicker.tsx` | Melhorar renderização HD dos ícones |
+| `src/i18n/locales/*.json` | Traduções: "Tempo de descanso", "Pular descanso", textos de notificação |
 
