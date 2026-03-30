@@ -5,6 +5,7 @@ import { useRoutineStore } from '@/stores/routineStore';
 import { RoutineCard } from '@/components/RoutineCard';
 import { RoutineDetail } from '@/components/RoutineDetail';
 import { useState, useEffect, useMemo } from 'react';
+import { requestNotificationPermission, scheduleRoutineReminder, clearAllReminders } from '@/utils/notifications';
 
 function useCurrentDate() {
   const [date, setDate] = useState(new Date());
@@ -63,7 +64,6 @@ export function HomeScreen() {
       }
     });
 
-    // Check every minute for midnight archive
     const interval = setInterval(() => {
       const current = new Date();
       if (current.getHours() === 0 && current.getMinutes() === 0) {
@@ -77,6 +77,24 @@ export function HomeScreen() {
     }, 60000);
     return () => clearInterval(interval);
   }, [routines.length]);
+
+  // Schedule push notifications for today's routines
+  useEffect(() => {
+    const hasReminders = filteredRoutines.some(r => r.reminder);
+    if (!hasReminders) return;
+
+    requestNotificationPermission().then(granted => {
+      if (!granted) return;
+      clearAllReminders();
+      filteredRoutines.forEach(r => {
+        if (r.reminder && r.time) {
+          scheduleRoutineReminder(r);
+        }
+      });
+    });
+
+    return () => clearAllReminders();
+  }, [filteredRoutines]);
 
   const filteredRoutines = useMemo(() => {
     let filtered = routines.filter(r => !r.archived);
