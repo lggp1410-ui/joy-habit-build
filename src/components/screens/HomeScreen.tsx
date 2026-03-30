@@ -97,6 +97,24 @@ export function HomeScreen() {
     return filtered.filter(r => r.days.length === 0 || r.days.some(d => d === dayLabel));
   }, [routines, selectedDayIndex, todayIndex, dayLabels, showAllRoutines, homeFilter]);
 
+  // Schedule push notifications for today's routines
+  useEffect(() => {
+    const hasReminders = filteredRoutines.some(r => r.reminder);
+    if (!hasReminders) return;
+
+    requestNotificationPermission().then(granted => {
+      if (!granted) return;
+      clearAllReminders();
+      filteredRoutines.forEach(r => {
+        if (r.reminder && r.time) {
+          scheduleRoutineReminder(r);
+        }
+      });
+    });
+
+    return () => clearAllReminders();
+  }, [filteredRoutines]);
+
   const handleCreateOption = (type: 'routine' | 'moment') => {
     setCreateType(type);
     setShowCreateMenu(false);
