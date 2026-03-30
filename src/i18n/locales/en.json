@@ -227,5 +227,12 @@
     "pop": "Pop 🎈",
     "successDing": "Success ✨",
     "whistle": "Whistle 😙"
+  },
+  "timer": {
+    "done": "Done",
+    "restTime": "Rest time",
+    "skipRest": "Skip rest",
+    "timeUp": "Time's up!",
+    "inProgress": "Timer in progress"
   }
 }
