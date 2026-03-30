@@ -227,5 +227,12 @@
     "pop": "팝 🎈",
     "successDing": "성공 ✨",
     "whistle": "휘슬 😙"
+  },
+  "timer": {
+    "done": "완료",
+    "restTime": "휴식 시간",
+    "skipRest": "휴식 건너뛰기",
+    "timeUp": "시간 종료!",
+    "inProgress": "타이머 진행 중"
   }
 }
