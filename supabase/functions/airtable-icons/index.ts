@@ -5,14 +5,21 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+function getEnvValue(name: string): string | null {
+  const value = Deno.env.get(name)?.trim();
+  if (!value) return null;
+
+  return value.replace(/^['"]|['"]$/g, '');
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const apiKey = Deno.env.get('AIRTABLE_API_KEY');
-    const baseId = Deno.env.get('AIRTABLE_BASE_ID');
+    const apiKey = getEnvValue('AIRTABLE_API_KEY');
+    const baseId = getEnvValue('AIRTABLE_BASE_ID');
     if (!apiKey || !baseId) {
       return new Response(
         JSON.stringify({ error: 'Airtable credentials not configured' }),
@@ -36,9 +43,14 @@ serve(async (req) => {
 
       if (!res.ok) {
         const err = await res.text();
-        console.error('Airtable error:', err);
+        console.error('Airtable error:', res.status, err);
+
+        const errorMessage = res.status === 401
+          ? 'Invalid Airtable token. Save a valid Personal Access Token (pat...) in AIRTABLE_API_KEY.'
+          : 'Failed to fetch from Airtable';
+
         return new Response(
-          JSON.stringify({ error: 'Failed to fetch from Airtable', details: err }),
+          JSON.stringify({ error: errorMessage, details: err }),
           { status: res.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
