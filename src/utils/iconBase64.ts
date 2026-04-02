@@ -22,7 +22,7 @@ export async function urlToBase64(url: string): Promise<string> {
 
     const canvas = document.createElement('canvas');
     // Cap at 64x64 to keep Base64 strings small
-    const maxSize = 64;
+    const maxSize = 128;
     const scale = Math.min(maxSize / loaded.naturalWidth, maxSize / loaded.naturalHeight, 1);
     canvas.width = Math.round(loaded.naturalWidth * scale);
     canvas.height = Math.round(loaded.naturalHeight * scale);
