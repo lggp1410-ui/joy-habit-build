@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { useRoutineStore } from '@/stores/routineStore';
 import { BarChart3, CheckCircle2, Target, Flame } from 'lucide-react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 const WEEKDAY_LABELS: Record<string, string[]> = {
   'pt-BR': ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'],
@@ -23,9 +23,87 @@ function getWeekDays(today: Date) {
   });
 }
 
+function getMonthDays(today: Date) {
+  const year = today.getFullYear();
+  const month = today.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const startPad = firstDay.getDay(); // 0=Sun
+  const days: (Date | null)[] = [];
+  for (let i = 0; i < startPad; i++) days.push(null);
+  for (let d = 1; d <= lastDay.getDate(); d++) {
+    days.push(new Date(year, month, d));
+  }
+  return days;
+}
+
+interface DayProgress {
+  dayLabel: string;
+  isToday: boolean;
+  routinePct: number;
+  momentPct: number;
+  hasRoutines: boolean;
+  hasMoments: boolean;
+}
+
+function calcDayProgress(
+  day: Date,
+  dayLabel: string,
+  today: Date,
+  routines: any[]
+): DayProgress {
+  const isToday = day.toDateString() === today.toDateString();
+  const dayRoutines = routines.filter(r =>
+    !r.archived && (r.type || 'routine') === 'routine' &&
+    (r.days.length === 0 || r.days.includes(dayLabel))
+  );
+  const dayMoments = routines.filter(r =>
+    !r.archived && r.type === 'moment'
+  );
+
+  const routineTotal = dayRoutines.reduce((a: number, r: any) => a + r.tasks.length, 0);
+  const routineDone = dayRoutines.reduce((a: number, r: any) => a + r.tasks.filter((t: any) => t.completed).length, 0);
+  const routinePct = routineTotal > 0 ? routineDone / routineTotal : 0;
+
+  const momentTotal = dayMoments.reduce((a: number, r: any) => a + r.tasks.length, 0);
+  const momentDone = dayMoments.reduce((a: number, r: any) => a + r.tasks.filter((t: any) => t.completed).length, 0);
+  const momentPct = momentTotal > 0 ? momentDone / momentTotal : 0;
+
+  return { dayLabel, isToday, routinePct, momentPct, hasRoutines: routineTotal > 0, hasMoments: momentTotal > 0 };
+}
+
+function ProgressDot({ dp, size = 40 }: { dp: DayProgress; size?: number }) {
+  const r = size * 0.4;
+  const c = size / 2;
+  return (
+    <svg viewBox={`0 0 ${size} ${size}`} className="w-full h-full">
+      <circle cx={c} cy={c} r={r} fill="hsl(var(--muted))" />
+      {dp.routinePct > 0 && dp.routinePct < 1 && (
+        <circle cx={c} cy={c} r={r} fill="hsl(350, 80%, 85%)"
+          clipPath={`inset(${(1 - dp.routinePct) * 100}% 0 0 0)`} />
+      )}
+      {dp.routinePct >= 1 && (
+        <circle cx={c} cy={c} r={r} fill="hsl(350, 80%, 85%)" />
+      )}
+      {dp.momentPct > 0 && (
+        <circle cx={c} cy={c} r={r} fill="none"
+          stroke="hsl(210, 70%, 75%)"
+          strokeWidth={dp.momentPct >= 1 ? 3 : 2}
+          strokeDasharray={`${dp.momentPct * (2 * Math.PI * r)} ${2 * Math.PI * r}`}
+          transform={`rotate(-90 ${c} ${c})`}
+          strokeLinecap="round" />
+      )}
+      {dp.isToday && (
+        <circle cx={c} cy={c} r={size * 0.075} fill="hsl(var(--primary))" />
+      )}
+    </svg>
+  );
+}
+
 export function AnalysisScreen() {
   const { routines } = useRoutineStore();
   const { t, i18n } = useTranslation();
+  const [viewMode, setViewMode] = useState<'weekly' | 'monthly'>('weekly');
 
   const totalTasks = routines.reduce((acc, r) => acc + r.tasks.length, 0);
   const completedTasks = routines.reduce((acc, r) => acc + r.tasks.filter(t => t.completed).length, 0);
@@ -41,35 +119,23 @@ export function AnalysisScreen() {
 
   const today = new Date();
   const weekDays = useMemo(() => getWeekDays(today), [today.toDateString()]);
+  const monthDays = useMemo(() => getMonthDays(today), [today.toDateString()]);
   const lang = i18n.language;
   const dayLabels = WEEKDAY_LABELS[lang] || WEEKDAY_LABELS['en'];
 
-  // Calculate progress dots for the week
   const weekProgress = useMemo(() => {
-    return weekDays.map((day, i) => {
-      const dayLabel = dayLabels[i];
-      const isToday = day.toDateString() === today.toDateString();
-      
-      // Filter routines for this day
-      const dayRoutines = routines.filter(r => 
-        !r.archived && (r.type || 'routine') === 'routine' && 
-        (r.days.length === 0 || r.days.includes(dayLabel))
-      );
-      const dayMoments = routines.filter(r => 
-        !r.archived && r.type === 'moment'
-      );
-
-      const routineTotal = dayRoutines.reduce((a, r) => a + r.tasks.length, 0);
-      const routineDone = dayRoutines.reduce((a, r) => a + r.tasks.filter(t => t.completed).length, 0);
-      const routinePct = routineTotal > 0 ? routineDone / routineTotal : 0;
-
-      const momentTotal = dayMoments.reduce((a, r) => a + r.tasks.length, 0);
-      const momentDone = dayMoments.reduce((a, r) => a + r.tasks.filter(t => t.completed).length, 0);
-      const momentPct = momentTotal > 0 ? momentDone / momentTotal : 0;
-
-      return { dayLabel, isToday, routinePct, momentPct, hasRoutines: routineTotal > 0, hasMoments: momentTotal > 0 };
-    });
+    return weekDays.map((day, i) => calcDayProgress(day, dayLabels[i], today, routines));
   }, [routines, weekDays, dayLabels, today]);
+
+  const monthProgress = useMemo(() => {
+    return monthDays.map(day => {
+      if (!day) return null;
+      const dayOfWeek = day.getDay();
+      return calcDayProgress(day, dayLabels[dayOfWeek], today, routines);
+    });
+  }, [routines, monthDays, dayLabels, today]);
+
+  const monthName = today.toLocaleDateString(lang === 'pt-BR' ? 'pt-BR' : lang, { month: 'long', year: 'numeric' });
 
   return (
     <div className="min-h-screen pb-24">
@@ -97,51 +163,37 @@ export function AnalysisScreen() {
           ))}
         </div>
 
-        {/* Weekly progress dots */}
-        <div className="mt-6">
-          <h3 className="text-display text-base mb-3">{t('analysis.weeklyHistory', 'Histórico Semanal')}</h3>
-          <div className="glass-card rounded-card p-4">
+        {/* View mode toggle */}
+        <div className="mt-6 flex items-center justify-between">
+          <h3 className="text-display text-base">
+            {viewMode === 'weekly'
+              ? t('analysis.weeklyHistory', 'Histórico Semanal')
+              : t('analysis.monthlyHistory', 'Histórico Mensal')}
+          </h3>
+          <div className="flex bg-muted rounded-full p-0.5">
+            <button
+              onClick={() => setViewMode('weekly')}
+              className={`px-3 py-1 text-xs rounded-full transition-colors ${viewMode === 'weekly' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}
+            >
+              {t('analysis.weekly', 'Semanal')}
+            </button>
+            <button
+              onClick={() => setViewMode('monthly')}
+              className={`px-3 py-1 text-xs rounded-full transition-colors ${viewMode === 'monthly' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}
+            >
+              {t('analysis.monthly', 'Mensal')}
+            </button>
+          </div>
+        </div>
+
+        {/* Weekly view */}
+        {viewMode === 'weekly' && (
+          <div className="glass-card rounded-card p-4 mt-3">
             <div className="flex justify-between items-end">
               {weekProgress.map((dp, i) => (
                 <div key={i} className="flex flex-col items-center gap-2">
-                  {/* Progress dot */}
                   <div className="relative w-10 h-10">
-                    <svg viewBox="0 0 40 40" className="w-full h-full">
-                      {/* Background circle */}
-                      <circle cx="20" cy="20" r="16" fill="hsl(var(--muted))" />
-                      
-                      {/* Routine fill (pink) */}
-                      {dp.routinePct > 0 && (
-                        <circle
-                          cx="20" cy="20" r="16"
-                          fill="hsl(350, 80%, 85%)"
-                          clipPath={`inset(${(1 - dp.routinePct) * 100}% 0 0 0)`}
-                        />
-                      )}
-
-                      {/* Full pink fill for 100% routines */}
-                      {dp.routinePct >= 1 && (
-                        <circle cx="20" cy="20" r="16" fill="hsl(350, 80%, 85%)" />
-                      )}
-
-                      {/* Blue outline for moments */}
-                      {dp.momentPct > 0 && (
-                        <circle
-                          cx="20" cy="20" r="16"
-                          fill="none"
-                          stroke="hsl(210, 70%, 75%)"
-                          strokeWidth={dp.momentPct >= 1 ? 3 : 2}
-                          strokeDasharray={`${dp.momentPct * 100.5} 100.5`}
-                          transform="rotate(-90 20 20)"
-                          strokeLinecap="round"
-                        />
-                      )}
-
-                      {/* Today indicator */}
-                      {dp.isToday && (
-                        <circle cx="20" cy="20" r="3" fill="hsl(var(--primary))" />
-                      )}
-                    </svg>
+                    <ProgressDot dp={dp} />
                   </div>
                   <span className={`text-[10px] font-medium ${dp.isToday ? 'text-primary' : 'text-muted-foreground'}`}>
                     {dp.dayLabel}
@@ -149,20 +201,42 @@ export function AnalysisScreen() {
                 </div>
               ))}
             </div>
-
-            {/* Legend */}
-            <div className="flex items-center justify-center gap-4 mt-4 pt-3 border-t border-border">
-              <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded-full bg-[hsl(350,80%,85%)]" />
-                <span className="text-[10px] text-muted-foreground">{t('analysis.routines', 'Rotinas')}</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded-full border-2 border-[hsl(210,70%,75%)] bg-transparent" />
-                <span className="text-[10px] text-muted-foreground">{t('analysis.moments', 'Momentos')}</span>
-              </div>
-            </div>
+            <Legend />
           </div>
-        </div>
+        )}
+
+        {/* Monthly view */}
+        {viewMode === 'monthly' && (
+          <div className="glass-card rounded-card p-4 mt-3">
+            <p className="text-sm text-muted-foreground text-center mb-3 capitalize">{monthName}</p>
+            {/* Day headers */}
+            <div className="grid grid-cols-7 gap-1 mb-1">
+              {dayLabels.map((label, i) => (
+                <div key={i} className="text-center text-[9px] text-muted-foreground font-medium">{label}</div>
+              ))}
+            </div>
+            {/* Day grid */}
+            <div className="grid grid-cols-7 gap-1">
+              {monthProgress.map((dp, i) => (
+                <div key={i} className="flex flex-col items-center py-0.5">
+                  {dp ? (
+                    <>
+                      <span className={`text-[10px] ${dp.isToday ? 'text-primary font-bold' : 'text-muted-foreground'}`}>
+                        {monthDays[i]!.getDate()}
+                      </span>
+                      <div className="w-6 h-6">
+                        <ProgressDot dp={dp} size={24} />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="h-[34px]" />
+                  )}
+                </div>
+              ))}
+            </div>
+            <Legend />
+          </div>
+        )}
 
         {routines.length > 0 && (
           <div className="mt-6">
@@ -206,6 +280,22 @@ export function AnalysisScreen() {
             <p className="text-muted-foreground text-sm">{t('analysis.noDataHint')}</p>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function Legend() {
+  const { t } = useTranslation();
+  return (
+    <div className="flex items-center justify-center gap-4 mt-4 pt-3 border-t border-border">
+      <div className="flex items-center gap-1.5">
+        <div className="w-3 h-3 rounded-full bg-[hsl(350,80%,85%)]" />
+        <span className="text-[10px] text-muted-foreground">{t('analysis.routines', 'Rotinas')}</span>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <div className="w-3 h-3 rounded-full border-2 border-[hsl(210,70%,75%)] bg-transparent" />
+        <span className="text-[10px] text-muted-foreground">{t('analysis.moments', 'Momentos')}</span>
       </div>
     </div>
   );

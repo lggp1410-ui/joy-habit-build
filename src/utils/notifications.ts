@@ -23,7 +23,6 @@ export function scheduleRoutineReminder(routine: Routine): void {
   if (!routine.reminder || !routine.time) return;
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
 
-  // Clear existing timer for this routine
   const existing = scheduledTimers.get(routine.id);
   if (existing) clearTimeout(existing);
 
@@ -32,15 +31,16 @@ export function scheduleRoutineReminder(routine: Routine): void {
   const target = new Date(now);
   target.setHours(hours, minutes, 0, 0);
 
-  // If time already passed today, skip
   if (target.getTime() <= now.getTime()) return;
 
   const delay = target.getTime() - now.getTime();
   const timer = setTimeout(() => {
-    showNotification(
-      `🕐 ${routine.name}`,
-      `Hora de começar sua rotina!`
-    );
+    const isMoment = routine.type === 'moment';
+    const title = isMoment ? `⭐ ${routine.name}` : `💐 ${routine.name}`;
+    const body = isMoment
+      ? `Está na hora de começar ${routine.name}! Toque para iniciar o momento! ⭐`
+      : `Está na hora de começar ${routine.name}! Toque para iniciar a rotina! 💐`;
+    showNotification(title, body);
     scheduledTimers.delete(routine.id);
   }, delay);
 
