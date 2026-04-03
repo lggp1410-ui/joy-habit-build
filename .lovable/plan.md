@@ -1,48 +1,64 @@
 
 
-## 3 Funcionalidades: Ícones Recentes Efêmeros, Calendário Mensal, Notificações Diferenciadas
+## Timer em Segundo Plano + Notificações + Correção de Rest Time
+
+### Problema atual
+1. O timer usa apenas refs em memória — ao sair do app ou mudar de aba, o estado se perde
+2. Notificações usam `setTimeout` no main thread — morrem quando a aba fecha
+3. Rest time na lista mostra números fracionários (ex: "0.5 min" em vez de "30s")
+4. Notificações não têm vibração, prioridade alta, ou ação ao clicar
+
+### Limitação importante (Web App)
+Notificações persistentes com timer ao vivo na barra de status (como apps nativos) não são possíveis em PWA/web. O melhor que a Web Notifications API permite é: notificação fixa com `requireInteraction: true` que é atualizada periodicamente, e notificações agendadas via Service Worker que funcionam mesmo com a aba inativa.
 
 ---
 
-### 1. Ícones recentes somem ao reinstalar (Item 1)
+### Mudanças
 
-**Situação atual:** Ícones recentes são persistidos em IndexedDB E no banco de dados (Supabase). Ao reinstalar, o IndexedDB é limpo, mas o hook `useRecentIconsSync` re-sincroniza do DB, restaurando os ícones.
+#### 1. Persistir estado do timer no localStorage
+**`src/components/CountdownTimer.tsx`**
+- Ao iniciar/pausar/completar uma tarefa, salvar no `localStorage` um objeto `timerState`: `{ routineId, taskId, startTimestamp, totalDuration, pausedRemaining, isResting, isPaused }`
+- No `useEffect` de inicialização, verificar se existe um `timerState` salvo e restaurar o tempo calculando `Date.now() - startTimestamp`
+- Ao fechar o timer (`onClose`) ou completar todas as tarefas, limpar o `localStorage`
+- Isso garante que ao reabrir o app ou voltar à aba, o timer mostra o tempo exato
 
-**Solução:** Remover a persistência de `recent_icons` no banco de dados. Manter apenas no IndexedDB (que é limpo ao desinstalar/reinstalar). O hook `useRecentIconsSync` passa a usar apenas IndexedDB, sem sync com Supabase.
+#### 2. Service Worker para notificações em background
+**`public/timer-sw.js`** (novo arquivo)
+- Service Worker dedicado que escuta `message` events do main thread
+- Recebe comandos: `SCHEDULE_NOTIFICATION` (com delay, título, corpo, vibrate) e `CANCEL_NOTIFICATION`
+- Usa `setTimeout` dentro do SW para disparar `self.registration.showNotification()` mesmo com aba inativa
+- No `notificationclick`, faz `clients.openWindow('/')` para abrir o app na tela correta
 
-**Arquivos:**
-- `src/hooks/useRecentIconsSync.ts` — Remover toda lógica de Supabase. Manter apenas load/save via IndexedDB.
+**`src/main.tsx`**
+- Registrar `timer-sw.js` (fora do guard de preview/iframe)
+
+#### 3. Atualizar notificações no CountdownTimer
+**`src/components/CountdownTimer.tsx`**
+- Ao iniciar tarefa: enviar `SCHEDULE_NOTIFICATION` ao SW com o delay até zero, incluindo vibração e `requireInteraction: true`
+- Ao completar tarefa: disparar notificação de conclusão "Tarefa [Nome] concluída! ⭐ Hora da próxima!" com vibração
+- Ao iniciar timer: mostrar notificação persistente com nome da tarefa e tempo (atualizada a cada 30s via SW)
+- Ao pausar/fechar: cancelar notificações agendadas
+
+#### 4. Melhorar `showNotification` 
+**`src/utils/notifications.ts`**
+- Adicionar opções: `vibrate: [200, 100, 200]`, `requireInteraction: true`, `tag` (para substituir notificações anteriores)
+- Adicionar helper `postToTimerSW(message)` para comunicar com o Service Worker
+- Manter textos diferenciados por tipo (momento ⭐ vs rotina 💐)
+
+#### 5. Corrigir exibição do rest time na lista
+**`src/components/RoutineDetail.tsx`** (linha 230)
+- Trocar `{getTaskRestTime(i)} min` por `{formatDuration(getTaskRestTime(i))}` 
+- O `restTime` é em minutos fracionários (ex: 0.5), e `formatDuration` já converte corretamente para "30s"
 
 ---
 
-### 2. Calendário mensal na página Análises (Item 2)
-
-**Solução:** Adicionar um toggle Semanal/Mensal acima do calendário. No modo mensal, renderizar uma grade de calendário com os dias do mês. Cada dia terá um mini-círculo SVG abaixo do número, com o mesmo esquema visual:
-- Preenchimento rosa pastel = % rotinas concluídas
-- Contorno azul claro = % momentos concluídos
-- 100% rotina + momento = rosa cheio com contorno azul
-
-**Arquivo:**
-- `src/components/screens/AnalysisScreen.tsx` — Adicionar estado `viewMode` (weekly/monthly), função `getMonthDays()`, e grid mensal com SVG circles reutilizando a mesma lógica de cálculo de progresso.
-
----
-
-### 3. Notificações push diferenciadas por tipo (Item 3)
-
-**Solução:** Atualizar `scheduleRoutineReminder` para verificar `routine.type` e usar textos/emojis diferentes.
-
-**Arquivo:**
-- `src/utils/notifications.ts` — No `setTimeout` callback de `scheduleRoutineReminder`, checar `routine.type === 'moment'`:
-  - Momento: `"⭐ [Nome]"` / `"Está na hora de começar [Nome]! Toque para iniciar o momento! ⭐"`
-  - Rotina: `"💐 [Nome]"` / `"Está na hora de começar [Nome]! Toque para iniciar a rotina! 💐"`
-
----
-
-### Resumo de arquivos
+### Arquivos
 
 | Arquivo | Mudança |
 |---------|---------|
-| `src/hooks/useRecentIconsSync.ts` | Remover sync com Supabase, manter apenas IndexedDB |
-| `src/components/screens/AnalysisScreen.tsx` | Adicionar calendário mensal com toggle e grid de bolinhas |
-| `src/utils/notifications.ts` | Diferenciar texto de notificação por tipo (rotina vs momento) |
+| `public/timer-sw.js` | **Novo** — Service Worker para notificações em background |
+| `src/main.tsx` | Registrar timer-sw.js |
+| `src/components/CountdownTimer.tsx` | Persistir estado no localStorage + integrar com SW |
+| `src/utils/notifications.ts` | Vibração, prioridade alta, helper para SW |
+| `src/components/RoutineDetail.tsx` | Corrigir exibição do rest time (formatDuration) |
 
