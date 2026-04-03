@@ -19,14 +19,15 @@ interface NotificationOptions {
 export function showNotification(title: string, body: string, options?: Partial<NotificationOptions>): Notification | null {
   if (!('Notification' in window) || Notification.permission !== 'granted') return null;
   try {
-    return new Notification(title, {
+    const notifOptions: Record<string, unknown> = {
       body,
       icon: options?.icon || '/favicon.ico',
       badge: '/favicon.ico',
       tag: options?.tag,
       vibrate: options?.vibrate || [200, 100, 200],
       requireInteraction: options?.requireInteraction ?? false,
-    });
+    };
+    return new Notification(title, notifOptions as globalThis.NotificationOptions);
   } catch {
     return null;
   }
