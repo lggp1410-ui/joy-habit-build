@@ -227,7 +227,7 @@ export function RoutineDetail() {
               <div className="flex items-center justify-center gap-2 py-3">
                 <div className="flex-1 h-px bg-border" />
                 <span className="text-sm">🌴</span>
-                <span className="text-xs text-muted-foreground">{getTaskRestTime(i)} min</span>
+                <span className="text-xs text-muted-foreground">{formatDuration(getTaskRestTime(i))}</span>
                 <div className="flex-1 h-px bg-border" />
               </div>
             )}

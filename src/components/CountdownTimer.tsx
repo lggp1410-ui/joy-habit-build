@@ -4,7 +4,45 @@ import { Pause, Play, SkipForward, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Routine, formatDuration, isImageIcon } from '@/types/routine';
 import { playCompletionSound } from '@/utils/completionSound';
-import { showNotification } from '@/utils/notifications';
+import {
+  showNotification,
+  scheduleTimerNotification,
+  cancelTimerNotification,
+  cancelAllTimerNotifications,
+} from '@/utils/notifications';
+
+const TIMER_STATE_KEY = 'timerState';
+
+interface TimerState {
+  routineId: string;
+  taskId: string;
+  startTimestamp: number;
+  totalDuration: number;
+  pausedRemaining: number;
+  isResting: boolean;
+  isPaused: boolean;
+}
+
+function saveTimerState(state: TimerState) {
+  try {
+    localStorage.setItem(TIMER_STATE_KEY, JSON.stringify(state));
+  } catch {}
+}
+
+function loadTimerState(): TimerState | null {
+  try {
+    const raw = localStorage.getItem(TIMER_STATE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function clearTimerState() {
+  try {
+    localStorage.removeItem(TIMER_STATE_KEY);
+  } catch {}
+}
 
 interface CountdownTimerProps {
   routine: Routine;
@@ -28,6 +66,7 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(fu
   const startTimeRef = useRef<number>(Date.now());
   const totalDurationRef = useRef<number>(0);
   const pausedRemainingRef = useRef<number>(0);
+  const restoredRef = useRef(false);
 
   const getTaskSeconds = useCallback(() => {
     return currentTask ? (currentTask.duration || 1) * 60 : 60;
@@ -39,8 +78,66 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(fu
     return Math.round(restMinutes * 60);
   }, [currentTask, routine.restTime]);
 
-  // Initialize timer for current task
+  // Persist state helper
+  const persistState = useCallback((overrides?: Partial<TimerState>) => {
+    if (!currentTask) return;
+    const state: TimerState = {
+      routineId: routine.id,
+      taskId: currentTask.id,
+      startTimestamp: startTimeRef.current,
+      totalDuration: totalDurationRef.current,
+      pausedRemaining: pausedRemainingRef.current,
+      isResting,
+      isPaused: !isRunning,
+      ...overrides,
+    };
+    saveTimerState(state);
+  }, [currentTask, routine.id, isResting, isRunning]);
+
+  // Try to restore from localStorage on mount
   useEffect(() => {
+    if (restoredRef.current) return;
+    restoredRef.current = true;
+
+    const saved = loadTimerState();
+    if (!saved || saved.routineId !== routine.id) return;
+
+    // Find the task index
+    const taskIdx = incompleteTasks.findIndex(t => t.id === saved.taskId);
+    if (taskIdx < 0) return;
+
+    setCurrentTaskIndex(taskIdx);
+    setIsResting(saved.isResting);
+    totalDurationRef.current = saved.totalDuration;
+
+    if (saved.isPaused) {
+      pausedRemainingRef.current = saved.pausedRemaining;
+      setRemaining(Math.round(saved.pausedRemaining));
+      setIsRunning(false);
+      if (saved.pausedRemaining < 0) setIsNegative(true);
+    } else {
+      // Calculate elapsed since startTimestamp
+      const elapsed = (Date.now() - saved.startTimestamp) / 1000;
+      const newRemaining = Math.round(saved.pausedRemaining - elapsed);
+      pausedRemainingRef.current = saved.pausedRemaining;
+      startTimeRef.current = saved.startTimestamp;
+      setRemaining(newRemaining);
+      setIsRunning(true);
+      if (newRemaining < 0) setIsNegative(true);
+    }
+  }, []);
+
+  // Initialize timer for current task (skip if restored)
+  useEffect(() => {
+    if (!restoredRef.current) return; // wait for restore check
+    const saved = loadTimerState();
+    // If we just restored this exact task, don't reinitialize
+    if (saved && saved.routineId === routine.id && saved.taskId === currentTask?.id) {
+      // Clear saved so next task change initializes fresh
+      // Actually, only clear if task changed from what was saved
+      return;
+    }
+
     if (currentTask && !isResting) {
       const secs = getTaskSeconds();
       totalDurationRef.current = secs;
@@ -50,6 +147,29 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(fu
       setIsNegative(false);
       setSoundPlayed(false);
       setIsRunning(true);
+
+      // Schedule SW notification for when timer hits zero
+      scheduleTimerNotification(
+        `task-${currentTask.id}`,
+        secs * 1000,
+        `✅ ${currentTask.name}`,
+        t('timer.timeUp', 'Tempo esgotado!'),
+        'timer-task-complete'
+      );
+
+      // Show persistent notification
+      showNotification(`⏱️ ${currentTask.name}`, t('timer.inProgress', 'Timer em andamento'), {
+        tag: 'active-timer',
+      });
+
+      persistState({
+        taskId: currentTask.id,
+        startTimestamp: Date.now(),
+        totalDuration: secs,
+        pausedRemaining: secs,
+        isResting: false,
+        isPaused: false,
+      });
     }
   }, [currentTaskIndex, currentTask?.id]);
 
@@ -85,16 +205,28 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(fu
     };
   }, [isRunning, isNegative]);
 
-  // Handle pause/resume - save remaining on pause
+  // Handle pause/resume
   const toggleRunning = () => {
     setIsRunning(prev => {
       if (prev) {
-        // Pausing: save current remaining
+        // Pausing
         const elapsed = (Date.now() - startTimeRef.current) / 1000;
         pausedRemainingRef.current = pausedRemainingRef.current - elapsed;
+        cancelTimerNotification(`task-${currentTask?.id}`, 'timer-task-complete');
+        persistState({ isPaused: true, pausedRemaining: pausedRemainingRef.current });
       } else {
-        // Resuming: reset start time
+        // Resuming
         startTimeRef.current = Date.now();
+        if (currentTask && pausedRemainingRef.current > 0) {
+          scheduleTimerNotification(
+            `task-${currentTask.id}`,
+            pausedRemainingRef.current * 1000,
+            `✅ ${currentTask.name}`,
+            t('timer.timeUp', 'Tempo esgotado!'),
+            'timer-task-complete'
+          );
+        }
+        persistState({ isPaused: false, startTimestamp: Date.now() });
       }
       return !prev;
     });
@@ -106,29 +238,34 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(fu
       playCompletionSound();
       setSoundPlayed(true);
       if (isResting) {
-        // Auto-advance after rest ends
         advanceToNextTask();
       } else if (currentTask) {
-        showNotification(`✅ ${currentTask.name}`, t('timer.timeUp', 'Tempo esgotado!'));
+        showNotification(`✅ ${currentTask.name}`, t('timer.timeUp', 'Tempo esgotado!'), {
+          tag: 'timer-task-complete',
+          vibrate: [200, 100, 200, 100, 200],
+          requireInteraction: true,
+        });
       }
     }
   }, [remaining, soundPlayed]);
 
-  // Show background notification when timer starts
-  useEffect(() => {
-    if (isRunning && currentTask && !isResting) {
-      showNotification(`⏱️ ${currentTask.name}`, t('timer.inProgress', 'Timer em andamento'));
-    }
-  }, [currentTask?.id, isResting]);
+  const handleClose = () => {
+    clearTimerState();
+    cancelAllTimerNotifications();
+    onClose();
+  };
 
   const advanceToNextTask = () => {
     setIsResting(false);
     if (incompleteTasks.length > 1) {
-      // Task was already completed, incompleteTasks shrunk
       setIsRunning(true);
       setIsNegative(false);
       setSoundPlayed(false);
+      // Clear saved state so next task initializes fresh
+      clearTimerState();
     } else {
+      clearTimerState();
+      cancelAllTimerNotifications();
       onClose();
     }
   };
@@ -137,17 +274,24 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(fu
     if (!currentTask) return;
 
     if (isResting) {
-      // Skip rest → advance
       advanceToNextTask();
       return;
     }
 
+    // Cancel any scheduled notification for this task
+    cancelTimerNotification(`task-${currentTask.id}`, 'timer-task-complete');
+
+    // Show completion notification
+    showNotification(
+      `✅ ${currentTask.name}`,
+      `Tarefa ${currentTask.name} concluída! ⭐ Hora da próxima!`,
+      { tag: 'timer-task-complete', vibrate: [200, 100, 200, 100, 200], requireInteraction: false }
+    );
+
     onCompleteTask(currentTask.id);
 
-    // Check for rest time
     const restSecs = getRestSeconds();
     if (restSecs > 0 && incompleteTasks.length > 1) {
-      // Enter rest mode
       setIsResting(true);
       totalDurationRef.current = restSecs;
       startTimeRef.current = Date.now();
@@ -156,22 +300,34 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(fu
       setIsNegative(false);
       setSoundPlayed(false);
       setIsRunning(true);
+
+      persistState({
+        startTimestamp: Date.now(),
+        totalDuration: restSecs,
+        pausedRemaining: restSecs,
+        isResting: true,
+        isPaused: false,
+      });
     } else {
       advanceToNextTask();
     }
   };
 
   const handleSkip = () => {
+    cancelTimerNotification(`task-${currentTask?.id}`, 'timer-task-complete');
     if (isResting) {
       advanceToNextTask();
       return;
     }
     if (currentTaskIndex < incompleteTasks.length - 1) {
+      clearTimerState();
       setCurrentTaskIndex(prev => prev + 1);
       setIsRunning(true);
       setIsNegative(false);
       setSoundPlayed(false);
     } else {
+      clearTimerState();
+      cancelAllTimerNotifications();
       onClose();
     }
   };
@@ -188,8 +344,6 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(fu
   const displayMinutes = Math.floor(absRemaining / 60);
   const displaySeconds = absRemaining % 60;
 
-  const circleColor = isNegative ? 'hsl(0, 80%, 85%)' : 'hsl(var(--primary))';
-
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -201,7 +355,7 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(fu
       <div className="px-5 pt-12 pb-2 flex items-center justify-between">
         <div />
         <h2 className="text-display text-lg">{routine.name}</h2>
-        <button onClick={onClose} className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+        <button onClick={handleClose} className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
           <X className="w-5 h-5" />
         </button>
       </div>
