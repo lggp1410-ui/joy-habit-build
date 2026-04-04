@@ -163,8 +163,10 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(fu
         'timer-task-complete'
       );
 
-      // Show persistent notification
-      showNotification(`⏱️ ${currentTask.name}`, t('timer.inProgress', 'Timer em andamento'), {
+      // Show persistent notification with time
+      const initMins = Math.floor(secs / 60).toString().padStart(2, '0');
+      const initSecs = (secs % 60).toString().padStart(2, '0');
+      showNotification(`⏱️ ${currentTask.name} — ${initMins}:${initSecs}`, t('timer.inProgress', 'Timer em andamento'), {
         tag: 'active-timer',
       });
 
