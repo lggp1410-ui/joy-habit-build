@@ -203,14 +203,14 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(fu
       }
       setRemaining(newRemaining);
 
-      // Update background notification every 15 seconds
+      // Update background notification every 5 seconds
       const now = Date.now();
-      if (currentTask && now - lastNotifUpdateRef.current >= 15000) {
+      if (currentTask && now - lastNotifUpdateRef.current >= 5000) {
         lastNotifUpdateRef.current = now;
         const taskLabel = isResting ? `🌴 ${t('timer.restTime', 'Descanso')}` : `⏱️ ${currentTask.name}`;
         showNotification(
-          `${taskLabel} — ${formatTime(newRemaining)}`,
-          isResting ? t('timer.restTime', 'Tempo de descanso') : t('timer.inProgress', 'Timer em andamento'),
+          taskLabel,
+          formatTime(newRemaining),
           { tag: 'active-timer' }
         );
       }
