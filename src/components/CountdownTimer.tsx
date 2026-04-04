@@ -203,9 +203,9 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(fu
       }
       setRemaining(newRemaining);
 
-      // Update background notification every 5 seconds
+      // Update background notification every 1 second
       const now = Date.now();
-      if (currentTask && now - lastNotifUpdateRef.current >= 5000) {
+      if (currentTask && now - lastNotifUpdateRef.current >= 1000) {
         lastNotifUpdateRef.current = now;
         const taskLabel = isResting ? `🌴 ${t('timer.restTime', 'Descanso')}` : `⏱️ ${currentTask.name}`;
         showNotification(
