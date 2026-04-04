@@ -100,6 +100,11 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(fu
     if (restoredRef.current) return;
     restoredRef.current = true;
 
+    // Request notification permission early
+    requestNotificationPermission().then(granted => {
+      console.log('[Timer] Notification permission:', granted ? 'granted' : 'denied');
+    });
+
     const saved = loadTimerState();
     if (!saved || saved.routineId !== routine.id) return;
 
