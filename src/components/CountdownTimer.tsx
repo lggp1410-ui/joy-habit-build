@@ -203,14 +203,14 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(fu
       }
       setRemaining(newRemaining);
 
-      // Update background notification every 15 seconds
+      // Update background notification every 5 seconds
       const now = Date.now();
-      if (currentTask && now - lastNotifUpdateRef.current >= 15000) {
+      if (currentTask && now - lastNotifUpdateRef.current >= 5000) {
         lastNotifUpdateRef.current = now;
         const taskLabel = isResting ? `🌴 ${t('timer.restTime', 'Descanso')}` : `⏱️ ${currentTask.name}`;
         showNotification(
-          `${taskLabel} — ${formatTime(newRemaining)}`,
-          isResting ? t('timer.restTime', 'Tempo de descanso') : t('timer.inProgress', 'Timer em andamento'),
+          taskLabel,
+          formatTime(newRemaining),
           { tag: 'active-timer' }
         );
       }
@@ -220,13 +220,12 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(fu
       if (document.visibilityState === 'visible') {
         recalculate();
       } else if (document.visibilityState === 'hidden' && isRunning && currentTask) {
-        // Immediately update notification when leaving the app
         const elapsed = (Date.now() - startTimeRef.current) / 1000;
         const newRemaining = Math.round(pausedRemainingRef.current - elapsed);
         const taskLabel = isResting ? `🌴 ${t('timer.restTime', 'Descanso')}` : `⏱️ ${currentTask.name}`;
         showNotification(
-          `${taskLabel} — ${formatTime(newRemaining)}`,
-          isResting ? t('timer.restTime', 'Tempo de descanso') : t('timer.inProgress', 'Timer em andamento'),
+          taskLabel,
+          formatTime(newRemaining),
           { tag: 'active-timer' }
         );
         lastNotifUpdateRef.current = Date.now();
