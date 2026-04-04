@@ -26,9 +26,21 @@ if (isPreviewHost || isInIframe) {
 } else if ("serviceWorker" in navigator) {
   navigator.serviceWorker
     .register("/timer-sw.js")
-    .then((reg) => {
-      setTimerSWRegistration(reg);
-      console.log("Timer SW registered");
+    .then(async (reg) => {
+      if (reg.active) {
+        setTimerSWRegistration(reg);
+        console.log("Timer SW registered (already active)");
+      } else {
+        const sw = reg.installing || reg.waiting;
+        if (sw) {
+          sw.addEventListener("statechange", () => {
+            if (sw.state === "activated") {
+              setTimerSWRegistration(reg);
+              console.log("Timer SW registered (now active)");
+            }
+          });
+        }
+      }
     })
     .catch((err) => console.warn("Timer SW registration failed:", err));
 }

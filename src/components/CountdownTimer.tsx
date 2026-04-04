@@ -6,6 +6,7 @@ import { Routine, formatDuration, isImageIcon } from '@/types/routine';
 import { playCompletionSound } from '@/utils/completionSound';
 import {
   showNotification,
+  requestNotificationPermission,
   scheduleTimerNotification,
   cancelTimerNotification,
   cancelAllTimerNotifications,
@@ -98,6 +99,11 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(fu
   useEffect(() => {
     if (restoredRef.current) return;
     restoredRef.current = true;
+
+    // Request notification permission early
+    requestNotificationPermission().then(granted => {
+      console.log('[Timer] Notification permission:', granted ? 'granted' : 'denied');
+    });
 
     const saved = loadTimerState();
     if (!saved || saved.routineId !== routine.id) return;
