@@ -6,6 +6,7 @@ import { Routine, formatDuration, isImageIcon } from '@/types/routine';
 import { playCompletionSound } from '@/utils/completionSound';
 import {
   showNotification,
+  requestNotificationPermission,
   scheduleTimerNotification,
   cancelTimerNotification,
   cancelAllTimerNotifications,
