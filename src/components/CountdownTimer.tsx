@@ -163,8 +163,10 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(fu
         'timer-task-complete'
       );
 
-      // Show persistent notification
-      showNotification(`⏱️ ${currentTask.name}`, t('timer.inProgress', 'Timer em andamento'), {
+      // Show persistent notification with time
+      const initMins = Math.floor(secs / 60).toString().padStart(2, '0');
+      const initSecs = (secs % 60).toString().padStart(2, '0');
+      showNotification(`⏱️ ${currentTask.name} — ${initMins}:${initSecs}`, t('timer.inProgress', 'Timer em andamento'), {
         tag: 'active-timer',
       });
 
@@ -180,8 +182,17 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(fu
   }, [currentTaskIndex, currentTask?.id]);
 
   // Timestamp-based interval + visibilitychange for background accuracy
+  const lastNotifUpdateRef = useRef<number>(0);
+
   useEffect(() => {
     let intervalId: ReturnType<typeof setInterval> | null = null;
+
+    const formatTime = (secs: number) => {
+      const abs = Math.abs(secs);
+      const m = Math.floor(abs / 60).toString().padStart(2, '0');
+      const s = (abs % 60).toString().padStart(2, '0');
+      return `${secs < 0 ? '-' : ''}${m}:${s}`;
+    };
 
     const recalculate = () => {
       if (!isRunning) return;
@@ -191,11 +202,34 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(fu
         setIsNegative(true);
       }
       setRemaining(newRemaining);
+
+      // Update background notification every 15 seconds
+      const now = Date.now();
+      if (currentTask && now - lastNotifUpdateRef.current >= 15000) {
+        lastNotifUpdateRef.current = now;
+        const taskLabel = isResting ? `🌴 ${t('timer.restTime', 'Descanso')}` : `⏱️ ${currentTask.name}`;
+        showNotification(
+          `${taskLabel} — ${formatTime(newRemaining)}`,
+          isResting ? t('timer.restTime', 'Tempo de descanso') : t('timer.inProgress', 'Timer em andamento'),
+          { tag: 'active-timer' }
+        );
+      }
     };
 
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
         recalculate();
+      } else if (document.visibilityState === 'hidden' && isRunning && currentTask) {
+        // Immediately update notification when leaving the app
+        const elapsed = (Date.now() - startTimeRef.current) / 1000;
+        const newRemaining = Math.round(pausedRemainingRef.current - elapsed);
+        const taskLabel = isResting ? `🌴 ${t('timer.restTime', 'Descanso')}` : `⏱️ ${currentTask.name}`;
+        showNotification(
+          `${taskLabel} — ${formatTime(newRemaining)}`,
+          isResting ? t('timer.restTime', 'Tempo de descanso') : t('timer.inProgress', 'Timer em andamento'),
+          { tag: 'active-timer' }
+        );
+        lastNotifUpdateRef.current = Date.now();
       }
     };
 
@@ -209,7 +243,7 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(fu
       if (intervalId) clearInterval(intervalId);
       document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, [isRunning, isNegative]);
+  }, [isRunning, isNegative, currentTask, isResting, t]);
 
   // Handle pause/resume
   const toggleRunning = () => {
