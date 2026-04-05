@@ -85,7 +85,9 @@ serve(async (req) => {
       for (const att of attachments) {
         if (!att.url || !att.filename) continue;
 
-        const key = `${category}/${att.filename}`;
+        const safeCat = sanitizePath(category);
+        const safeFile = sanitizePath(att.filename);
+        const key = `${safeCat}/${safeFile}`;
         if (existingSet.has(key)) {
           skipped++;
           continue;
@@ -100,7 +102,7 @@ serve(async (req) => {
           }
 
           const blob = await imgRes.blob();
-          const storagePath = `${category}/${att.filename}`;
+          const storagePath = `${safeCat}/${safeFile}`;
 
           // Upload to storage
           const { error: uploadError } = await supabase.storage
