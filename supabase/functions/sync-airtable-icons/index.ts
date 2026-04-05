@@ -120,8 +120,8 @@ serve(async (req) => {
 
           // Insert metadata
           const { error: insertError } = await supabase.from('icons').insert({
-            category,
-            filename: att.filename,
+            category: safeCat,
+            filename: safeFile,
             storage_path: storagePath,
           });
 
