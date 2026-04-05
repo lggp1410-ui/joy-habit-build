@@ -9,26 +9,26 @@ import { urlToBase64 } from '@/utils/iconBase64';
 
 // Map category names to i18n keys
 const CATEGORY_I18N_MAP: Record<string, string> = {
-  'Manhã': 'iconCategories.morning',
+  'Manha': 'iconCategories.morning',
   'Tarde/Noite': 'iconCategories.afternoonNight',
-  'Saúde': 'iconCategories.health',
+  'Saude': 'iconCategories.health',
   'Aprender': 'iconCategories.learn',
   'Trabalho': 'iconCategories.work',
-  'Profissões': 'iconCategories.professions',
-  'Família': 'iconCategories.family',
-  'Bebê/Criança': 'iconCategories.babyChild',
+  'Profissoes': 'iconCategories.professions',
+  'Familia': 'iconCategories.family',
+  'Bebe/Crianca': 'iconCategories.babyChild',
   'Beleza': 'iconCategories.beauty',
-  'Culinária': 'iconCategories.cooking',
+  'Culinaria': 'iconCategories.cooking',
   'Tarefas da Casa': 'iconCategories.houseTasks',
-  'Veículos': 'iconCategories.vehicles',
-  'Exercício': 'iconCategories.exercise',
+  'Veiculos': 'iconCategories.vehicles',
+  'Exercicio': 'iconCategories.exercise',
   'Lazer': 'iconCategories.leisure',
   'Lanches/Bebidas': 'iconCategories.snacksDrinks',
   'Pets': 'iconCategories.pets',
-  'Eletrônicos': 'iconCategories.electronics',
-  'Comércio': 'iconCategories.commerce',
-  'Música': 'iconCategories.music',
-  'Religião': 'iconCategories.religion',
+  'Eletronicos': 'iconCategories.electronics',
+  'Comercio': 'iconCategories.commerce',
+  'Musica': 'iconCategories.music',
+  'Religiao': 'iconCategories.religion',
 };
 
 // Normalize: remove accents for comparison
