@@ -1,16 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
-
-function getEnvValue(name: string): string | null {
-  const value = Deno.env.get(name)?.trim();
-  if (!value) return null;
-
-  return value.replace(/^['"]|['"]$/g, '');
-}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -18,68 +12,47 @@ serve(async (req) => {
   }
 
   try {
-    const apiKey = getEnvValue('AIRTABLE_API_KEY');
-    const baseId = getEnvValue('AIRTABLE_BASE_ID');
-    if (!apiKey || !baseId) {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+    // Read icons from the database (stored permanently)
+    const { data: icons, error: dbError } = await supabase
+      .from('icons')
+      .select('category, filename, storage_path')
+      .order('category');
+
+    if (dbError) {
+      console.error('DB error:', dbError);
       return new Response(
-        JSON.stringify({ error: 'Airtable credentials not configured' }),
+        JSON.stringify({ error: 'Failed to read icons from database' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const tableName = 'tblNPJDonQwlhTADO';
-    let allRecords: any[] = [];
-    let offset: string | undefined;
+    if (!icons || icons.length === 0) {
+      return new Response(
+        JSON.stringify({ categories: [], message: 'No icons synced yet. Run sync-airtable-icons first.' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-    // Paginate through all records
-    do {
-      const url = new URL(`https://api.airtable.com/v0/${baseId}/${tableName}`);
-      url.searchParams.set('pageSize', '100');
-      if (offset) url.searchParams.set('offset', offset);
-
-      const res = await fetch(url.toString(), {
-        headers: { Authorization: `Bearer ${apiKey}` },
-      });
-
-      if (!res.ok) {
-        const err = await res.text();
-        console.error('Airtable error:', res.status, err);
-
-        const errorMessage = res.status === 401
-          ? 'Invalid Airtable token. Save a valid Personal Access Token (pat...) in AIRTABLE_API_KEY.'
-          : 'Failed to fetch from Airtable';
-
-        return new Response(
-          JSON.stringify({ error: errorMessage, details: err }),
-          { status: res.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      const data = await res.json();
-      allRecords = allRecords.concat(data.records || []);
-      offset = data.offset;
-    } while (offset);
-
-    // Group records by category (Notes field)
+    // Build public URLs and group by category
     const categoryMap: Record<string, { name: string; icons: { url: string; filename: string }[] }> = {};
 
-    for (const record of allRecords) {
-      const fields = record.fields || {};
-      const category = fields['Notes'] || fields['Name'] || fields['Category'] || 'Other';
-      const attachments = fields['Anexos'] || fields['Attachments'] || [];
-
-      if (!categoryMap[category]) {
-        categoryMap[category] = { name: category, icons: [] };
+    for (const icon of icons) {
+      if (!categoryMap[icon.category]) {
+        categoryMap[icon.category] = { name: icon.category, icons: [] };
       }
 
-      for (const att of attachments) {
-        if (att.url) {
-          categoryMap[category].icons.push({
-            url: att.url,
-            filename: att.filename || '',
-          });
-        }
-      }
+      const { data: urlData } = supabase.storage
+        .from('icons')
+        .getPublicUrl(icon.storage_path);
+
+      categoryMap[icon.category].icons.push({
+        url: urlData.publicUrl,
+        filename: icon.filename,
+      });
     }
 
     const categories = Object.values(categoryMap).filter(c => c.icons.length > 0);
