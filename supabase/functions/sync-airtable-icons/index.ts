@@ -6,6 +6,14 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+function sanitizePath(str: string): string {
+  return str
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // remove accents
+    .replace(/\s+/g, '-') // spaces to hyphens
+    .replace(/[^a-zA-Z0-9\-_./]/g, '') // remove special chars
+    .replace(/-+/g, '-'); // collapse multiple hyphens
+}
+
 function getEnvValue(name: string): string | null {
   const value = Deno.env.get(name)?.trim();
   if (!value) return null;
