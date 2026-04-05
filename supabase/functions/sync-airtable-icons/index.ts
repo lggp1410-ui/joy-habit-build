@@ -6,6 +6,14 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+function sanitizePath(str: string): string {
+  return str
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // remove accents
+    .replace(/\s+/g, '-') // spaces to hyphens
+    .replace(/[^a-zA-Z0-9\-_./]/g, '') // remove special chars
+    .replace(/-+/g, '-'); // collapse multiple hyphens
+}
+
 function getEnvValue(name: string): string | null {
   const value = Deno.env.get(name)?.trim();
   if (!value) return null;
@@ -77,7 +85,10 @@ serve(async (req) => {
       for (const att of attachments) {
         if (!att.url || !att.filename) continue;
 
-        const key = `${category}/${att.filename}`;
+        const safeCat = sanitizePath(category);
+        const safeFile = sanitizePath(att.filename);
+        const key = `${safeCat}/${safeFile}`;
+        const key = `${safeCat}/${safeFile}`;
         if (existingSet.has(key)) {
           skipped++;
           continue;
@@ -92,7 +103,7 @@ serve(async (req) => {
           }
 
           const blob = await imgRes.blob();
-          const storagePath = `${category}/${att.filename}`;
+          const storagePath = `${safeCat}/${safeFile}`;
 
           // Upload to storage
           const { error: uploadError } = await supabase.storage
@@ -110,8 +121,8 @@ serve(async (req) => {
 
           // Insert metadata
           const { error: insertError } = await supabase.from('icons').insert({
-            category,
-            filename: att.filename,
+            category: safeCat,
+            filename: safeFile,
             storage_path: storagePath,
           });
 
