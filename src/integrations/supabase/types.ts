@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      icons: {
+        Row: {
+          category: string
+          created_at: string
+          filename: string
+          id: string
+          storage_path: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          filename: string
+          id?: string
+          storage_path: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          filename?: string
+          id?: string
+          storage_path?: string
+        }
+        Relationships: []
+      }
       user_preferences: {
         Row: {
           id: string
