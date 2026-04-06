@@ -284,7 +284,8 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(fu
 
   // Play sound at 0
   useEffect(() => {
-    if (remaining <= 0 && !soundPlayed) {
+    if (!timerInitialized || soundPlayed) return;
+    if (remaining <= 0) {
       playCompletionSound();
       setSoundPlayed(true);
       if (isResting) {
