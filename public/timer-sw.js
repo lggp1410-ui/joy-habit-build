@@ -1,8 +1,8 @@
-// Timer Service Worker — handles background notifications
+// Timer Service Worker — handles background notifications and completion sounds
 const scheduledTimers = {};
 
 self.addEventListener('message', (event) => {
-  const { type, id, delay, title, body, vibrate, tag, requireInteraction } = event.data || {};
+  const { type, id, delay, title, body, vibrate, tag, requireInteraction, playSound, soundUrl } = event.data || {};
 
   if (type === 'SCHEDULE_NOTIFICATION') {
     // Cancel existing timer with same id
@@ -11,8 +11,7 @@ self.addEventListener('message', (event) => {
       delete scheduledTimers[id];
     }
 
-    if (delay <= 0) {
-      // Fire immediately
+    const fireNotification = () => {
       self.registration.showNotification(title, {
         body,
         icon: '/favicon.ico',
@@ -22,21 +21,28 @@ self.addEventListener('message', (event) => {
         requireInteraction: requireInteraction !== false,
         data: { url: '/' },
       });
+
+      // Play completion sound if requested
+      if (playSound && soundUrl) {
+        playAudioInSW(soundUrl);
+      }
+
+      delete scheduledTimers[id];
+    };
+
+    if (delay <= 0) {
+      fireNotification();
       return;
     }
 
-    scheduledTimers[id] = setTimeout(() => {
-      self.registration.showNotification(title, {
-        body,
-        icon: '/favicon.ico',
-        badge: '/favicon.ico',
-        vibrate: vibrate || [200, 100, 200],
-        tag: tag || 'timer-notification',
-        requireInteraction: requireInteraction !== false,
-        data: { url: '/' },
-      });
-      delete scheduledTimers[id];
-    }, delay);
+    scheduledTimers[id] = setTimeout(fireNotification, delay);
+  }
+
+  if (type === 'PLAY_SOUND') {
+    // Direct sound playback request
+    if (event.data.soundUrl) {
+      playAudioInSW(event.data.soundUrl);
+    }
   }
 
   if (type === 'CANCEL_NOTIFICATION') {
@@ -44,7 +50,6 @@ self.addEventListener('message', (event) => {
       clearTimeout(scheduledTimers[id]);
       delete scheduledTimers[id];
     }
-    // Also close any visible notification with matching tag
     if (tag) {
       self.registration.getNotifications({ tag }).then((notifications) => {
         notifications.forEach((n) => n.close());
@@ -63,6 +68,25 @@ self.addEventListener('message', (event) => {
   }
 });
 
+// Play audio using fetch + decodeAudioData in the SW context
+async function playAudioInSW(soundUrl) {
+  try {
+    // Notify all clients to play the sound (more reliable than SW audio)
+    const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    if (clients.length > 0) {
+      clients.forEach(client => {
+        client.postMessage({ type: 'PLAY_COMPLETION_SOUND', soundUrl });
+      });
+      return;
+    }
+    // Fallback: try to play in SW context (limited support)
+    // Most browsers don't support AudioContext in SW, but we try anyway
+    console.log('[timer-sw] No clients available to play sound');
+  } catch (e) {
+    console.error('[timer-sw] Error playing sound:', e);
+  }
+}
+
 // When user clicks the notification, focus/open the app
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
@@ -70,13 +94,11 @@ self.addEventListener('notificationclick', (event) => {
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
-      // Focus existing window if any
       for (const client of clients) {
         if (client.url.includes(self.location.origin)) {
           return client.focus();
         }
       }
-      // Otherwise open new window
       return self.clients.openWindow(url);
     })
   );

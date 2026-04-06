@@ -6,6 +6,18 @@ import { setTimerSWRegistration } from "./utils/notifications";
 
 createRoot(document.getElementById("root")!).render(<App />);
 
+// Listen for SW messages to play sounds in the main thread
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.addEventListener("message", (event) => {
+    if (event.data?.type === "PLAY_COMPLETION_SOUND" && event.data.soundUrl) {
+      try {
+        const audio = new Audio(event.data.soundUrl);
+        audio.play().catch(() => {});
+      } catch {}
+    }
+  });
+}
+
 // PWA: Guard against iframe/preview contexts
 const isInIframe = (() => {
   try {

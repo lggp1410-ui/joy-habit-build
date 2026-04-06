@@ -19,9 +19,9 @@ const CATEGORY_I18N_MAP: Record<string, string> = {
   'Bebe/Crianca': 'iconCategories.babyChild',
   'Beleza': 'iconCategories.beauty',
   'Culinaria': 'iconCategories.cooking',
-  'Tarefas da Casa': 'iconCategories.houseTasks',
+  'Tarefas-da-Casa': 'iconCategories.houseTasks',
   'Veiculos': 'iconCategories.vehicles',
-  'Exercicio': 'iconCategories.exercise',
+  'Exercicios': 'iconCategories.exercise',
   'Lazer': 'iconCategories.leisure',
   'Lanches/Bebidas': 'iconCategories.snacksDrinks',
   'Pets': 'iconCategories.pets',
@@ -290,7 +290,7 @@ export function IconPicker({ isOpen, onClose, onSelect, selectedIcon }: IconPick
             )}
 
             {/* Icons grid */}
-            <div className="grid grid-cols-5 gap-3 overflow-y-auto flex-1 pb-4">
+            <div className="grid grid-cols-5 gap-x-3 gap-y-4 overflow-y-auto flex-1 pb-4">
               {searchQuery && searchResults ? (
                 searchResults.length > 0 ? (
                   searchResults.map((icon, i) => renderIcon(icon.url, icon.filename, `search-${i}`))

@@ -44,10 +44,18 @@ function setCache(categories: AirtableCategory[]) {
 }
 
 function filterValidIcons(categories: AirtableCategory[]): AirtableCategory[] {
-  return categories.map(cat => ({
-    ...cat,
-    icons: cat.icons.filter(icon => icon.url && icon.url.startsWith('http') && icon.filename),
-  })).filter(cat => cat.icons.length > 0);
+  return categories.map(cat => {
+    const seen = new Set<string>();
+    return {
+      ...cat,
+      icons: cat.icons.filter(icon => {
+        if (!icon.url || !icon.url.startsWith('http') || !icon.filename) return false;
+        if (seen.has(icon.filename)) return false;
+        seen.add(icon.filename);
+        return true;
+      }),
+    };
+  }).filter(cat => cat.icons.length > 0);
 }
 
 export function useAirtableIcons() {

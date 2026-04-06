@@ -154,13 +154,21 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(fu
       setSoundPlayed(false);
       setIsRunning(true);
 
-      // Schedule SW notification for when timer hits zero
+      // Schedule SW notification + sound for when timer hits zero
+      const soundKey = localStorage.getItem('planlizz-sound') || 'pop';
+      const soundMap: Record<string, string> = {
+        arrow: '/sounds/Flecha.m4a', bark: '/sounds/Latido.m4a', birds: '/sounds/Passaros.mp3',
+        correctDing: '/sounds/Correto.m4a', ding: '/sounds/Ding.m4a', meow: '/sounds/Gatinho.m4a',
+        pop: '/sounds/Pop.m4a', successDing: '/sounds/Conquista.m4a', whistle: '/sounds/Apito.m4a',
+      };
+      const soundFile = soundMap[soundKey] || '/sounds/Pop.m4a';
       scheduleTimerNotification(
         `task-${currentTask.id}`,
         secs * 1000,
         `✅ ${currentTask.name}`,
         t('timer.timeUp', 'Tempo esgotado!'),
-        'timer-task-complete'
+        'timer-task-complete',
+        { playSound: soundKey !== 'none', soundUrl: soundFile }
       );
 
       // Show persistent notification with time
