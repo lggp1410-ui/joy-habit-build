@@ -115,7 +115,8 @@ export async function scheduleTimerNotification(
   delayMs: number,
   title: string,
   body: string,
-  tag?: string
+  tag?: string,
+  options?: { playSound?: boolean; soundUrl?: string }
 ): Promise<void> {
   const sent = await postToTimerSW({
     type: 'SCHEDULE_NOTIFICATION',
@@ -126,6 +127,8 @@ export async function scheduleTimerNotification(
     vibrate: [200, 100, 200, 100, 200],
     tag: tag || 'timer-task',
     requireInteraction: true,
+    playSound: options?.playSound || false,
+    soundUrl: options?.soundUrl || '',
   });
   if (!sent) {
     console.warn('[Notifications] Failed to schedule notification via SW for:', title);
