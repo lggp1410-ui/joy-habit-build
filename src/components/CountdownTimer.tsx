@@ -298,7 +298,7 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(fu
         });
       }
     }
-  }, [remaining, soundPlayed]);
+  }, [remaining, soundPlayed, timerInitialized]);
 
   const handleClose = () => {
     clearTimerState();
