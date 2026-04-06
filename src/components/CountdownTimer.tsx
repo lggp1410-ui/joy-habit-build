@@ -155,6 +155,7 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(fu
       setIsNegative(false);
       setSoundPlayed(false);
       setIsRunning(true);
+      setTimerInitialized(true);
 
       // Schedule SW notification + sound for when timer hits zero
       const soundKey = localStorage.getItem('planlizz-sound') || 'pop';
