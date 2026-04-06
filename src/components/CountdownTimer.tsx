@@ -62,6 +62,7 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(fu
   const [isNegative, setIsNegative] = useState(false);
   const [soundPlayed, setSoundPlayed] = useState(false);
   const [remaining, setRemaining] = useState(0);
+  const [timerInitialized, setTimerInitialized] = useState(false);
 
   // Timestamp-based timing for background accuracy
   const startTimeRef = useRef<number>(Date.now());
@@ -131,6 +132,7 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(fu
       setIsRunning(true);
       if (newRemaining < 0) setIsNegative(true);
     }
+    setTimerInitialized(true);
   }, []);
 
   // Initialize timer for current task (skip if restored)
@@ -153,6 +155,7 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(fu
       setIsNegative(false);
       setSoundPlayed(false);
       setIsRunning(true);
+      setTimerInitialized(true);
 
       // Schedule SW notification + sound for when timer hits zero
       const soundKey = localStorage.getItem('planlizz-sound') || 'pop';
@@ -281,7 +284,8 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(fu
 
   // Play sound at 0
   useEffect(() => {
-    if (remaining <= 0 && !soundPlayed) {
+    if (!timerInitialized || soundPlayed) return;
+    if (remaining <= 0) {
       playCompletionSound();
       setSoundPlayed(true);
       if (isResting) {
@@ -294,7 +298,7 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(fu
         });
       }
     }
-  }, [remaining, soundPlayed]);
+  }, [remaining, soundPlayed, timerInitialized]);
 
   const handleClose = () => {
     clearTimerState();
