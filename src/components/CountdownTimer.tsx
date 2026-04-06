@@ -132,6 +132,7 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(fu
       setIsRunning(true);
       if (newRemaining < 0) setIsNegative(true);
     }
+    setTimerInitialized(true);
   }, []);
 
   // Initialize timer for current task (skip if restored)
