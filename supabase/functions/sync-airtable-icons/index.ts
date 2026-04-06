@@ -88,7 +88,6 @@ serve(async (req) => {
         const safeCat = sanitizePath(category);
         const safeFile = sanitizePath(att.filename);
         const key = `${safeCat}/${safeFile}`;
-        const key = `${safeCat}/${safeFile}`;
         if (existingSet.has(key)) {
           skipped++;
           continue;
