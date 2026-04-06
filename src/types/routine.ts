@@ -44,8 +44,8 @@ export const DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'] as const;
 export const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
 
 export const ICON_CATEGORIES = [
-  'Manhã', 'Tarde/Noite', 'Saúde', 'Aprender', 'Trabalho',
-  'Profissões', 'Família', 'Bebê/Criança', 'Beleza', 'Culinária',
-  'Tarefas da Casa', 'Veículos', 'Exercício', 'Lazer',
-  'Lanches/Bebidas', 'Pets', 'Eletrônicos', 'Comércio', 'Música', 'Religião'
+  'Manha', 'Tarde/Noite', 'Saude', 'Aprender', 'Trabalho',
+  'Profissoes', 'Familia', 'Bebe/Crianca', 'Beleza', 'Culinaria',
+  'Tarefas-da-Casa', 'Veiculos', 'Exercicios', 'Lazer',
+  'Lanches/Bebidas', 'Pets', 'Eletronicos', 'Comercio', 'Musica', 'Religiao'
 ] as const;
