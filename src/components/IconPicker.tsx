@@ -290,7 +290,7 @@ export function IconPicker({ isOpen, onClose, onSelect, selectedIcon }: IconPick
             )}
 
             {/* Icons grid */}
-            <div className="grid grid-cols-5 gap-3 overflow-y-auto flex-1 pb-4">
+            <div className="grid grid-cols-5 gap-x-3 gap-y-4 overflow-y-auto flex-1 pb-4">
               {searchQuery && searchResults ? (
                 searchResults.length > 0 ? (
                   searchResults.map((icon, i) => renderIcon(icon.url, icon.filename, `search-${i}`))
