@@ -62,6 +62,7 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(fu
   const [isNegative, setIsNegative] = useState(false);
   const [soundPlayed, setSoundPlayed] = useState(false);
   const [remaining, setRemaining] = useState(0);
+  const [timerInitialized, setTimerInitialized] = useState(false);
 
   // Timestamp-based timing for background accuracy
   const startTimeRef = useRef<number>(Date.now());
