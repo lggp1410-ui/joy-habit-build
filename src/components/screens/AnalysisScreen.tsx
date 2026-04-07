@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { useRoutineStore } from '@/stores/routineStore';
-import { BarChart3, CheckCircle2, Target, Flame } from 'lucide-react';
+import { BarChart3, CheckCircle2, Target, Flame, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 const WEEKDAY_LABELS: Record<string, string[]> = {
@@ -104,6 +104,7 @@ export function AnalysisScreen() {
   const { routines } = useRoutineStore();
   const { t, i18n } = useTranslation();
   const [viewMode, setViewMode] = useState<'weekly' | 'monthly'>('weekly');
+  const [monthOffset, setMonthOffset] = useState(0);
 
   const totalTasks = routines.reduce((acc, r) => acc + r.tasks.length, 0);
   const completedTasks = routines.reduce((acc, r) => acc + r.tasks.filter(t => t.completed).length, 0);
@@ -119,7 +120,11 @@ export function AnalysisScreen() {
 
   const today = new Date();
   const weekDays = useMemo(() => getWeekDays(today), [today.toDateString()]);
-  const monthDays = useMemo(() => getMonthDays(today), [today.toDateString()]);
+  const viewMonth = useMemo(() => {
+    const d = new Date(today.getFullYear(), today.getMonth() + monthOffset, 1);
+    return d;
+  }, [today.toDateString(), monthOffset]);
+  const monthDays = useMemo(() => getMonthDays(viewMonth), [viewMonth.toISOString()]);
   const lang = i18n.language;
   const dayLabels = WEEKDAY_LABELS[lang] || WEEKDAY_LABELS['en'];
 
@@ -135,7 +140,7 @@ export function AnalysisScreen() {
     });
   }, [routines, monthDays, dayLabels, today]);
 
-  const monthName = today.toLocaleDateString(lang === 'pt-BR' ? 'pt-BR' : lang, { month: 'long', year: 'numeric' });
+  const monthName = viewMonth.toLocaleDateString(lang === 'pt-BR' ? 'pt-BR' : lang, { month: 'long', year: 'numeric' });
 
   return (
     <div className="min-h-screen pb-24">
@@ -208,7 +213,19 @@ export function AnalysisScreen() {
         {/* Monthly view */}
         {viewMode === 'monthly' && (
           <div className="glass-card rounded-card p-4 mt-3">
-            <p className="text-sm text-muted-foreground text-center mb-3 capitalize">{monthName}</p>
+            <div className="flex items-center justify-between mb-3">
+              <button onClick={() => setMonthOffset(prev => prev - 1)} className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <p className="text-sm text-muted-foreground capitalize">{monthName}</p>
+              <button
+                onClick={() => setMonthOffset(prev => prev + 1)}
+                disabled={monthOffset >= 0}
+                className="w-8 h-8 rounded-full bg-muted flex items-center justify-center disabled:opacity-30"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
             {/* Day headers */}
             <div className="grid grid-cols-7 gap-1 mb-1">
               {dayLabels.map((label, i) => (

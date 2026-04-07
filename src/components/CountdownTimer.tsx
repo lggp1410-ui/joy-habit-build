@@ -244,7 +244,7 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(fu
     };
 
     if (isRunning) {
-      startTimeRef.current = Date.now();
+      // Don't reset startTimeRef here — it's set when starting/resuming
       intervalId = setInterval(recalculate, 1000);
       document.addEventListener('visibilitychange', handleVisibility);
     }
