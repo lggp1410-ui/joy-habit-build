@@ -140,7 +140,7 @@ export function AnalysisScreen() {
     });
   }, [routines, monthDays, dayLabels, today]);
 
-  const monthName = today.toLocaleDateString(lang === 'pt-BR' ? 'pt-BR' : lang, { month: 'long', year: 'numeric' });
+  const monthName = viewMonth.toLocaleDateString(lang === 'pt-BR' ? 'pt-BR' : lang, { month: 'long', year: 'numeric' });
 
   return (
     <div className="min-h-screen pb-24">
