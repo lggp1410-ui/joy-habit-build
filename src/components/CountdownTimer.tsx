@@ -69,6 +69,9 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(fu
   const totalDurationRef = useRef<number>(0);
   const pausedRemainingRef = useRef<number>(0);
   const restoredRef = useRef(false);
+  const tickTimeoutRef = useRef<number | null>(null);
+  const lastRenderedSecondRef = useRef<number | null>(null);
+  const lastVisibilityRef = useRef<DocumentVisibilityState>(document.visibilityState);
 
   const getTaskSeconds = useCallback(() => {
     return currentTask ? (currentTask.duration || 1) * 60 : 60;
@@ -79,6 +82,81 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(fu
     const restMinutes = currentTask.restTime ?? routine.restTime ?? 0;
     return Math.round(restMinutes * 60);
   }, [currentTask, routine.restTime]);
+
+  const getSelectedSoundConfig = useCallback(() => {
+    const soundKey = localStorage.getItem('planlizz-sound') || 'pop';
+    const soundMap: Record<string, string> = {
+      arrow: '/sounds/Flecha.m4a',
+      bark: '/sounds/Latido.m4a',
+      birds: '/sounds/Passaros.mp3',
+      correctDing: '/sounds/Correto.m4a',
+      ding: '/sounds/Ding.m4a',
+      meow: '/sounds/Gatinho.m4a',
+      pop: '/sounds/Pop.m4a',
+      successDing: '/sounds/Conquista.m4a',
+      whistle: '/sounds/Apito.m4a',
+    };
+
+    return {
+      playSound: soundKey !== 'none',
+      soundUrl: soundMap[soundKey] || '/sounds/Pop.m4a',
+    };
+  }, []);
+
+  const getCurrentRemainingSeconds = useCallback((now = Date.now()) => {
+    const elapsedMs = now - startTimeRef.current;
+    const diffMs = pausedRemainingRef.current * 1000 - elapsedMs;
+
+    if (diffMs >= 0) return Math.ceil(diffMs / 1000);
+    return Math.floor(diffMs / 1000);
+  }, []);
+
+  const formatTimerValue = useCallback((secs: number) => {
+    const abs = Math.abs(secs);
+    const m = Math.floor(abs / 60).toString().padStart(2, '0');
+    const s = (abs % 60).toString().padStart(2, '0');
+    return `${secs < 0 ? '-' : ''}${m}:${s}`;
+  }, []);
+
+  const syncTimerDisplay = useCallback((nextRemaining: number) => {
+    if (lastRenderedSecondRef.current === nextRemaining) return;
+
+    lastRenderedSecondRef.current = nextRemaining;
+    setRemaining(nextRemaining);
+    setIsNegative((prev) => {
+      const shouldBeNegative = nextRemaining < 0;
+      return prev === shouldBeNegative ? prev : shouldBeNegative;
+    });
+  }, []);
+
+  const updateBackgroundNotification = useCallback((nextRemaining: number) => {
+    if (!currentTask || document.visibilityState !== 'hidden') return;
+
+    const now = Date.now();
+    if (now - lastNotifUpdateRef.current < 1000) return;
+
+    lastNotifUpdateRef.current = now;
+    const taskLabel = isResting ? `🌴 ${t('timer.restTime', 'Descanso')}` : `⏱️ ${currentTask.name}`;
+
+    showNotification(taskLabel, formatTimerValue(nextRemaining), {
+      tag: 'active-timer',
+    });
+  }, [currentTask, formatTimerValue, isResting, t]);
+
+  const scheduleTaskCompletionAlert = useCallback((taskId: string, taskName: string, delaySeconds: number) => {
+    if (delaySeconds <= 0) return;
+
+    const { playSound, soundUrl } = getSelectedSoundConfig();
+
+    scheduleTimerNotification(
+      `task-${taskId}`,
+      Math.max(0, Math.ceil(delaySeconds * 1000)),
+      `✅ ${taskName}`,
+      t('timer.timeUp', 'Tempo esgotado!'),
+      'timer-task-complete',
+      { playSound, soundUrl }
+    );
+  }, [getSelectedSoundConfig, t]);
 
   // Persist state helper
   const persistState = useCallback((overrides?: Partial<TimerState>) => {
@@ -119,21 +197,22 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(fu
 
     if (saved.isPaused) {
       pausedRemainingRef.current = saved.pausedRemaining;
+      lastRenderedSecondRef.current = Math.round(saved.pausedRemaining);
       setRemaining(Math.round(saved.pausedRemaining));
       setIsRunning(false);
       if (saved.pausedRemaining < 0) setIsNegative(true);
     } else {
       // Calculate elapsed since startTimestamp
-      const elapsed = (Date.now() - saved.startTimestamp) / 1000;
-      const newRemaining = Math.round(saved.pausedRemaining - elapsed);
       pausedRemainingRef.current = saved.pausedRemaining;
       startTimeRef.current = saved.startTimestamp;
+      const newRemaining = getCurrentRemainingSeconds();
+      lastRenderedSecondRef.current = newRemaining;
       setRemaining(newRemaining);
       setIsRunning(true);
       if (newRemaining < 0) setIsNegative(true);
     }
     setTimerInitialized(true);
-  }, []);
+  }, [getCurrentRemainingSeconds, incompleteTasks, routine.id]);
 
   // Initialize timer for current task (skip if restored)
   useEffect(() => {
@@ -151,6 +230,7 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(fu
       totalDurationRef.current = secs;
       startTimeRef.current = Date.now();
       pausedRemainingRef.current = secs;
+      lastRenderedSecondRef.current = secs;
       setRemaining(secs);
       setIsNegative(false);
       setSoundPlayed(false);
@@ -158,28 +238,12 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(fu
       setTimerInitialized(true);
 
       // Schedule SW notification + sound for when timer hits zero
-      const soundKey = localStorage.getItem('planlizz-sound') || 'pop';
-      const soundMap: Record<string, string> = {
-        arrow: '/sounds/Flecha.m4a', bark: '/sounds/Latido.m4a', birds: '/sounds/Passaros.mp3',
-        correctDing: '/sounds/Correto.m4a', ding: '/sounds/Ding.m4a', meow: '/sounds/Gatinho.m4a',
-        pop: '/sounds/Pop.m4a', successDing: '/sounds/Conquista.m4a', whistle: '/sounds/Apito.m4a',
-      };
-      const soundFile = soundMap[soundKey] || '/sounds/Pop.m4a';
-      scheduleTimerNotification(
-        `task-${currentTask.id}`,
-        secs * 1000,
-        `✅ ${currentTask.name}`,
-        t('timer.timeUp', 'Tempo esgotado!'),
-        'timer-task-complete',
-        { playSound: soundKey !== 'none', soundUrl: soundFile }
-      );
+      scheduleTaskCompletionAlert(currentTask.id, currentTask.name, secs);
 
-      // Show persistent notification with time
-      const initMins = Math.floor(secs / 60).toString().padStart(2, '0');
-      const initSecs = (secs % 60).toString().padStart(2, '0');
-      showNotification(`⏱️ ${currentTask.name} — ${initMins}:${initSecs}`, t('timer.inProgress', 'Timer em andamento'), {
-        tag: 'active-timer',
-      });
+      if (document.visibilityState === 'hidden') {
+        lastNotifUpdateRef.current = 0;
+        updateBackgroundNotification(secs);
+      }
 
       persistState({
         taskId: currentTask.id,
@@ -190,91 +254,86 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(fu
         isPaused: false,
       });
     }
-  }, [currentTaskIndex, currentTask?.id]);
+  }, [currentTaskIndex, currentTask?.id, getTaskSeconds, isResting, persistState, routine.id, scheduleTaskCompletionAlert, t, updateBackgroundNotification]);
 
   // Timestamp-based interval + visibilitychange for background accuracy
   const lastNotifUpdateRef = useRef<number>(0);
 
   useEffect(() => {
-    let intervalId: ReturnType<typeof setInterval> | null = null;
-
-    const formatTime = (secs: number) => {
-      const abs = Math.abs(secs);
-      const m = Math.floor(abs / 60).toString().padStart(2, '0');
-      const s = (abs % 60).toString().padStart(2, '0');
-      return `${secs < 0 ? '-' : ''}${m}:${s}`;
+    const clearTick = () => {
+      if (tickTimeoutRef.current !== null) {
+        window.clearTimeout(tickTimeoutRef.current);
+        tickTimeoutRef.current = null;
+      }
     };
 
-    const recalculate = () => {
-      if (!isRunning) return;
-      const elapsed = (Date.now() - startTimeRef.current) / 1000;
-      const newRemaining = Math.round(pausedRemainingRef.current - elapsed);
-      if (newRemaining < 0 && !isNegative) {
-        setIsNegative(true);
-      }
-      setRemaining(newRemaining);
+    const tick = () => {
+      if (!isRunning || !timerInitialized) return;
 
-      // Update background notification every 1 second
       const now = Date.now();
-      if (currentTask && now - lastNotifUpdateRef.current >= 1000) {
-        lastNotifUpdateRef.current = now;
-        const taskLabel = isResting ? `🌴 ${t('timer.restTime', 'Descanso')}` : `⏱️ ${currentTask.name}`;
-        showNotification(
-          taskLabel,
-          formatTime(newRemaining),
-          { tag: 'active-timer' }
-        );
-      }
+      const nextRemaining = getCurrentRemainingSeconds(now);
+
+      syncTimerDisplay(nextRemaining);
+      updateBackgroundNotification(nextRemaining);
+
+      const elapsedMs = now - startTimeRef.current;
+      const remainderMs = elapsedMs % 1000;
+      const nextDelay = remainderMs === 0 ? 1000 : 1000 - remainderMs;
+
+      clearTick();
+      tickTimeoutRef.current = window.setTimeout(tick, nextDelay);
+    };
+
+    const resyncFromClock = () => {
+      if (!isRunning || !timerInitialized) return;
+
+      lastNotifUpdateRef.current = 0;
+      tick();
     };
 
     const handleVisibility = () => {
-      if (document.visibilityState === 'visible') {
-        recalculate();
-      } else if (document.visibilityState === 'hidden' && isRunning && currentTask) {
-        const elapsed = (Date.now() - startTimeRef.current) / 1000;
-        const newRemaining = Math.round(pausedRemainingRef.current - elapsed);
-        const taskLabel = isResting ? `🌴 ${t('timer.restTime', 'Descanso')}` : `⏱️ ${currentTask.name}`;
-        showNotification(
-          taskLabel,
-          formatTime(newRemaining),
-          { tag: 'active-timer' }
-        );
-        lastNotifUpdateRef.current = Date.now();
+      const previousVisibility = lastVisibilityRef.current;
+      lastVisibilityRef.current = document.visibilityState;
+
+      if (document.visibilityState === 'hidden' || previousVisibility === 'hidden') {
+        resyncFromClock();
       }
     };
 
-    if (isRunning) {
-      // Don't reset startTimeRef here — it's set when starting/resuming
-      intervalId = setInterval(recalculate, 1000);
-      document.addEventListener('visibilitychange', handleVisibility);
+    if (isRunning && timerInitialized) {
+      tick();
     }
 
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', resyncFromClock);
+    window.addEventListener('pageshow', resyncFromClock);
+
     return () => {
-      if (intervalId) clearInterval(intervalId);
+      clearTick();
       document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', resyncFromClock);
+      window.removeEventListener('pageshow', resyncFromClock);
     };
-  }, [isRunning, isNegative, currentTask, isResting, t]);
+  }, [currentTask, getCurrentRemainingSeconds, isRunning, syncTimerDisplay, timerInitialized, updateBackgroundNotification]);
 
   // Handle pause/resume
   const toggleRunning = () => {
     setIsRunning(prev => {
       if (prev) {
         // Pausing
-        const elapsed = (Date.now() - startTimeRef.current) / 1000;
-        pausedRemainingRef.current = pausedRemainingRef.current - elapsed;
+        const nextRemaining = getCurrentRemainingSeconds();
+        pausedRemainingRef.current = nextRemaining;
+        lastRenderedSecondRef.current = nextRemaining;
+        setRemaining(nextRemaining);
+        setIsNegative(nextRemaining < 0);
         cancelTimerNotification(`task-${currentTask?.id}`, 'timer-task-complete');
         persistState({ isPaused: true, pausedRemaining: pausedRemainingRef.current });
       } else {
         // Resuming
         startTimeRef.current = Date.now();
+        lastRenderedSecondRef.current = pausedRemainingRef.current;
         if (currentTask && pausedRemainingRef.current > 0) {
-          scheduleTimerNotification(
-            `task-${currentTask.id}`,
-            pausedRemainingRef.current * 1000,
-            `✅ ${currentTask.name}`,
-            t('timer.timeUp', 'Tempo esgotado!'),
-            'timer-task-complete'
-          );
+          scheduleTaskCompletionAlert(currentTask.id, currentTask.name, pausedRemainingRef.current);
         }
         persistState({ isPaused: false, startTimestamp: Date.now() });
       }
@@ -301,6 +360,10 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(fu
   }, [remaining, soundPlayed, timerInitialized]);
 
   const handleClose = () => {
+    if (tickTimeoutRef.current !== null) {
+      window.clearTimeout(tickTimeoutRef.current);
+      tickTimeoutRef.current = null;
+    }
     clearTimerState();
     cancelAllTimerNotifications();
     onClose();
@@ -347,6 +410,7 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(fu
       totalDurationRef.current = restSecs;
       startTimeRef.current = Date.now();
       pausedRemainingRef.current = restSecs;
+      lastRenderedSecondRef.current = restSecs;
       setRemaining(restSecs);
       setIsNegative(false);
       setSoundPlayed(false);
