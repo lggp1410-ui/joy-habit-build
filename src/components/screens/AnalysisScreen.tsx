@@ -104,6 +104,7 @@ export function AnalysisScreen() {
   const { routines } = useRoutineStore();
   const { t, i18n } = useTranslation();
   const [viewMode, setViewMode] = useState<'weekly' | 'monthly'>('weekly');
+  const [monthOffset, setMonthOffset] = useState(0);
 
   const totalTasks = routines.reduce((acc, r) => acc + r.tasks.length, 0);
   const completedTasks = routines.reduce((acc, r) => acc + r.tasks.filter(t => t.completed).length, 0);
