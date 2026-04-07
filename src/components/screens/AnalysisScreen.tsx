@@ -213,7 +213,19 @@ export function AnalysisScreen() {
         {/* Monthly view */}
         {viewMode === 'monthly' && (
           <div className="glass-card rounded-card p-4 mt-3">
-            <p className="text-sm text-muted-foreground text-center mb-3 capitalize">{monthName}</p>
+            <div className="flex items-center justify-between mb-3">
+              <button onClick={() => setMonthOffset(prev => prev - 1)} className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <p className="text-sm text-muted-foreground capitalize">{monthName}</p>
+              <button
+                onClick={() => setMonthOffset(prev => prev + 1)}
+                disabled={monthOffset >= 0}
+                className="w-8 h-8 rounded-full bg-muted flex items-center justify-center disabled:opacity-30"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
             {/* Day headers */}
             <div className="grid grid-cols-7 gap-1 mb-1">
               {dayLabels.map((label, i) => (
