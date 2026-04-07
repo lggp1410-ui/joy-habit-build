@@ -120,7 +120,11 @@ export function AnalysisScreen() {
 
   const today = new Date();
   const weekDays = useMemo(() => getWeekDays(today), [today.toDateString()]);
-  const monthDays = useMemo(() => getMonthDays(today), [today.toDateString()]);
+  const viewMonth = useMemo(() => {
+    const d = new Date(today.getFullYear(), today.getMonth() + monthOffset, 1);
+    return d;
+  }, [today.toDateString(), monthOffset]);
+  const monthDays = useMemo(() => getMonthDays(viewMonth), [viewMonth.toISOString()]);
   const lang = i18n.language;
   const dayLabels = WEEKDAY_LABELS[lang] || WEEKDAY_LABELS['en'];
 
