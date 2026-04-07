@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { useRoutineStore } from '@/stores/routineStore';
-import { BarChart3, CheckCircle2, Target, Flame } from 'lucide-react';
+import { BarChart3, CheckCircle2, Target, Flame, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 const WEEKDAY_LABELS: Record<string, string[]> = {
