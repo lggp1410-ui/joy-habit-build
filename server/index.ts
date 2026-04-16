@@ -103,6 +103,10 @@ app.get("/api/auth/user", (req, res) => {
   });
 });
 
+app.get("/api/auth/google-config", (_req, res) => {
+  res.json({ clientId: process.env.GOOGLE_CLIENT_ID || null });
+});
+
 // POST /api/auth/guest — create a guest session
 app.post("/api/auth/guest", (req, res) => {
   const guestId = `guest_${Date.now()}`;
@@ -116,6 +120,98 @@ app.post("/api/auth/logout", (req, res) => {
   req.session.destroy(() => {
     res.json({ ok: true });
   });
+});
+
+async function createGoogleSessionFromCode(
+  req: express.Request,
+  code: string,
+  redirectUri: string
+): Promise<{ ok: true } | { ok: false; error: string; details?: string }> {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+
+  if (!clientId || !clientSecret) {
+    req.session.userId = "demo_user";
+    req.session.userName = "Demo User";
+    return { ok: true };
+  }
+
+  const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      code,
+      client_id: clientId,
+      client_secret: clientSecret,
+      redirect_uri: redirectUri,
+      grant_type: "authorization_code",
+    }),
+  });
+
+  if (!tokenRes.ok) {
+    const details = await tokenRes.text();
+    console.error("[OAuth] Google token exchange failed:", details);
+    let error = "token_exchange_failed";
+    try { error = JSON.parse(details).error || error; } catch {}
+    return { ok: false, error, details };
+  }
+
+  const { access_token } = (await tokenRes.json()) as { access_token: string };
+  const userRes = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+    headers: { Authorization: `Bearer ${access_token}` },
+  });
+
+  if (!userRes.ok) {
+    const details = await userRes.text();
+    console.error("[OAuth] Google profile fetch failed:", details);
+    return { ok: false, error: "profile_fetch_failed", details };
+  }
+
+  const profile = (await userRes.json()) as {
+    id: string;
+    name: string;
+    picture?: string;
+  };
+
+  req.session.userId = `google_${profile.id}`;
+  req.session.userName = profile.name;
+  req.session.userAvatar = profile.picture;
+  return { ok: true };
+}
+
+app.post("/api/auth/google-login", async (req, res) => {
+  try {
+    const { code } = req.body as { code?: string };
+    if (!code) {
+      res.status(400).json({ error: "missing_code" });
+      return;
+    }
+
+    const result = await createGoogleSessionFromCode(req, code, "postmessage");
+    if (!result.ok) {
+      res.status(401).json({ error: result.error });
+      return;
+    }
+
+    req.session.save((saveErr) => {
+      if (saveErr) {
+        console.error("[OAuth] Session save failed:", saveErr);
+        res.status(500).json({ error: "session_save_failed" });
+        return;
+      }
+
+      res.json({
+        user: {
+          id: req.session.userId,
+          name: req.session.userName,
+          avatar: req.session.userAvatar,
+        },
+      });
+    });
+  } catch (err) {
+    console.error("[OAuth] Google popup login error:", err);
+    res.status(500).json({ error: "server_error" });
+  }
 });
 
 // GET /api/auth/login — redirect to Google OAuth
@@ -155,58 +251,12 @@ app.get("/api/auth/callback", async (req, res) => {
       return;
     }
 
-    const clientId = process.env.GOOGLE_CLIENT_ID;
-    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-
-    if (!clientId || !clientSecret) {
-      // Dev fallback — no credentials, demo session
-      req.session.userId = "demo_user";
-      req.session.userName = "Demo User";
-      res.redirect("/");
-      return;
-    }
-
     const redirectUri = `${getAppUrl(req)}/api/auth/callback`;
-
-    // Exchange authorization code for tokens
-    const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        code,
-        client_id: clientId,
-        client_secret: clientSecret,
-        redirect_uri: redirectUri,
-        grant_type: "authorization_code",
-      }),
-    });
-
-    if (!tokenRes.ok) {
-      const errBody = await tokenRes.text();
-      console.error("[OAuth] Google token exchange failed:", errBody);
-      let reason = "token_exchange_failed";
-      try { reason = JSON.parse(errBody).error || reason; } catch {}
-      res.redirect(`/?auth_error=${encodeURIComponent(reason)}`);
+    const result = await createGoogleSessionFromCode(req, code, redirectUri);
+    if (!result.ok) {
+      res.redirect(`/?auth_error=${encodeURIComponent(result.error)}`);
       return;
     }
-
-    const { access_token } = (await tokenRes.json()) as { access_token: string };
-
-    // Get user profile from Google
-    const userRes = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
-      headers: { Authorization: `Bearer ${access_token}` },
-    });
-
-    const profile = (await userRes.json()) as {
-      id: string;
-      name: string;
-      picture?: string;
-      email?: string;
-    };
-
-    req.session.userId = `google_${profile.id}`;
-    req.session.userName = profile.name;
-    req.session.userAvatar = profile.picture;
 
     // Explicitly save session to DB before redirecting
     req.session.save((saveErr) => {

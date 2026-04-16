@@ -6,7 +6,7 @@ PlanLizz is a React + TypeScript daily routine planner app (PWA). Migrated from 
 ## Architecture
 - **Frontend**: React 18, Vite 8, TypeScript, Tailwind CSS, Shadcn/ui, Zustand, TanStack Query
 - **Backend**: Express.js server (TypeScript via tsx), Drizzle ORM, PostgreSQL
-- **Auth**: Session-based auth via Express sessions. Login redirects to `/api/auth/login` for Google OAuth when `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are configured. Guest mode is supported without login.
+- **Auth**: Session-based auth via Express sessions. Login uses Google Identity Services popup + `/api/auth/google-login` when `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are configured, avoiding redirect URI mismatch. `/api/auth/login` remains as a redirect fallback. Guest mode is supported without login.
 - **Database**: Replit-provisioned PostgreSQL (see `DATABASE_URL` env var)
 - **Icons**: Icon catalog stored in `icons` table in PostgreSQL. Auto-synced from Airtable on server startup if DB is empty (requires `AIRTABLE_API_KEY` and `AIRTABLE_BASE_ID`). Manual sync available at `POST /api/icons/sync`. Icons are stored as 128px Base64 PNGs in the DB.
 - **Recent Icons**: Stored in IndexedDB only and synced to the server only after the current install has local recent icons. They are intentionally excluded from localStorage so Recentes clears on app reinstall.
