@@ -4,15 +4,23 @@ import connectPgSimple from "connect-pg-simple";
 import cors from "cors";
 import sharp from "sharp";
 import pg from "pg";
+import crypto from "crypto";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import { db } from "./db.js";
 import { userPreferences, icons } from "../shared/schema.js";
 import { eq, and } from "drizzle-orm";
 
 const app = express();
 const PORT = process.env.SERVER_PORT || 3001;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const clientDist = path.resolve(__dirname, "../dist");
 
 const PgSession = connectPgSimple(session);
 const pgPool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+const sessionSecret = process.env.SESSION_SECRET || crypto.randomBytes(32).toString("hex");
 
 // Ensure session table exists
 pgPool.query(`
@@ -30,7 +38,7 @@ app.use(express.json());
 app.use(
   session({
     store: new PgSession({ pool: pgPool, tableName: "session" }),
-    secret: process.env.SESSION_SECRET || "planlizz-dev-secret",
+    secret: sessionSecret,
     resave: false,
     saveUninitialized: false,
     cookie: {
@@ -497,6 +505,17 @@ app.post("/api/icons/sync", async (_req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
+
+if (fs.existsSync(path.join(clientDist, "index.html"))) {
+  app.use(express.static(clientDist));
+  app.get(/.*/, (req, res, next) => {
+    if (req.path.startsWith("/api")) {
+      next();
+      return;
+    }
+    res.sendFile(path.join(clientDist, "index.html"));
+  });
+}
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

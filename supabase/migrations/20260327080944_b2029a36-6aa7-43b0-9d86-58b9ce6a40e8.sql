@@ -1,1 +1,0 @@
-ALTER TABLE public.user_preferences ADD COLUMN routines jsonb DEFAULT '[]'::jsonb;

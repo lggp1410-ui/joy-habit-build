@@ -11,6 +11,7 @@ PlanLizz is a React + TypeScript daily routine planner app (PWA). Migrated from 
 - **Icons**: Icon catalog stored in `icons` table in PostgreSQL. Auto-synced from Airtable on server startup if DB is empty (requires `AIRTABLE_API_KEY` and `AIRTABLE_BASE_ID`). Manual sync available at `POST /api/icons/sync`. Icons are stored as 128px Base64 PNGs in the DB.
 - **Recent Icons**: Stored in `sessionStorage` (clears when browser tab is closed/app is reinstalled). NOT persisted in localStorage.
 - **Notifications**: `/timer-sw.js` handles routine reminders and persistent timer notifications. Timer start requests permission from the user action and waits for the service worker before sending the first persistent notification.
+- **Production serving**: `server/index.ts` serves the Vite `dist/` build when present, while development uses Vite on port 5000 with `/api` proxied to Express.
 
 ## Key Files
 - `server/index.ts` — Express server, all API routes
@@ -41,9 +42,8 @@ npm run db:push   # Push schema changes to the database
 - `AIRTABLE_BASE_ID` — For syncing icons from Airtable (optional)
 - `REPLIT_CLIENT_ID` / `REPLIT_CLIENT_SECRET` / `REPLIT_APP_URL` — For full Replit OIDC auth (optional; app works in guest/demo mode without these)
 
-## Migration Notes (from Lovable)
-- Removed: `vite-plugin-pwa`, `@lovable.dev/cloud-auth-js`, `lovable-tagger`, `@supabase/supabase-js`
-- `src/integrations/supabase/client.ts` is stubbed (returns null)
+## Migration Notes (from Lovable/Replit Agent)
+- Removed: Supabase client code, Supabase Edge Functions, and Supabase migrations
 - `src/integrations/lovable/index.ts` is stubbed (redirects to /api/auth/login)
 - Supabase Edge Functions replaced by Express routes in `server/index.ts`
 - Supabase auth replaced by session-based auth with Replit OIDC support
