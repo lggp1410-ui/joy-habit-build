@@ -18,14 +18,15 @@ export function useRecentIconsSync(userId: string | undefined) {
       // Always load from IndexedDB first (offline-first, instant)
       const local = await getLocalRecentIcons();
 
-      // For logged-in users, also fetch from server and merge
+      // For logged-in users, fetch server recents only for the current install.
+      // If IndexedDB is empty after reinstall, keep Recentes empty until the user chooses icons again.
       if (userId && !userId.startsWith('guest')) {
         try {
           const res = await fetch('/api/preferences/recent-icons', { credentials: 'include' });
           if (res.ok) {
             const { recentIcons: serverIcons } = await res.json() as { recentIcons: string[] };
-            if (serverIcons && serverIcons.length > 0) {
-              // Merge: server takes priority, keep local-only ones at end
+            if (serverIcons && serverIcons.length > 0 && local.length > 0) {
+              // Merge only when this install already has local recent icons.
               const serverSet = new Set(serverIcons);
               const localOnly = local.filter(i => !serverSet.has(i));
               const merged = [...serverIcons, ...localOnly].slice(0, 30);

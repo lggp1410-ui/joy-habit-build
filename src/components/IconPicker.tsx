@@ -113,11 +113,11 @@ export function IconPicker({ isOpen, onClose, onSelect, selectedIcon }: IconPick
   const hasAirtableData = airtableCategories.length > 0;
 
   const categoryNames: string[] = ['Recentes', ...(hasAirtableData
-    ? ([...ICON_CATEGORIES] as string[]).filter(cat => airtableCategories.some(c => c.name === cat))
-        .concat(airtableCategories.map(c => c.name).filter(name => !(ICON_CATEGORIES as readonly string[]).includes(name)))
+    ? ([...ICON_CATEGORIES] as string[]).filter(cat => airtableCategories.some(c => normalize(c.name) === normalize(cat)))
+        .concat(airtableCategories.map(c => c.name).filter(name => !(ICON_CATEGORIES as readonly string[]).some(cat => normalize(cat) === normalize(name))))
     : [...ICON_CATEGORIES] as string[])];
 
-  const activeAirtableCat = airtableCategories.find(c => c.name === activeCategory);
+  const activeAirtableCat = airtableCategories.find(c => normalize(c.name) === normalize(activeCategory));
 
   const cleanRecentIcons = useMemo(() =>
     recentIcons.filter(url => url && isImageIcon(url) && !brokenUrls.has(url)),

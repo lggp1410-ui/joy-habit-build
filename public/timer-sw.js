@@ -11,6 +11,7 @@ self.addEventListener('message', (event) => {
   // ── Scheduled (one-shot) notifications ──────────────────────────────────────
   if (type === 'SCHEDULE_NOTIFICATION') {
     const { id, delay, title, body, vibrate, tag, requireInteraction, playSound, soundUrl } = data;
+    const notifData = data.data || { url: '/', type: 'task-complete' };
 
     if (scheduledTimers[id]) {
       clearTimeout(scheduledTimers[id]);
@@ -27,7 +28,8 @@ self.addEventListener('message', (event) => {
         requireInteraction: requireInteraction !== false,
         silent: false,
         renotify: true,
-        data: { url: '/', type: 'task-complete' },
+        data: notifData,
+        ongoing: true,
         // Android: maximize visibility
         actions: [{ action: 'open', title: '▶ Abrir App' }],
       });
@@ -49,13 +51,13 @@ self.addEventListener('message', (event) => {
 
   // ── Persistent live timer notification ─────────────────────────────────────
   if (type === 'START_PERSISTENT_TIMER') {
-    const { taskName, timeDisplay, isResting } = data;
-    showPersistentTimer(taskName, timeDisplay, isResting, false);
+    const { taskName, timeDisplay, isResting, routineId } = data;
+    showPersistentTimer(taskName, timeDisplay, isResting, false, routineId);
   }
 
   if (type === 'UPDATE_PERSISTENT_TIMER') {
-    const { taskName, timeDisplay, isResting } = data;
-    showPersistentTimer(taskName, timeDisplay, isResting, true);
+    const { taskName, timeDisplay, isResting, routineId } = data;
+    showPersistentTimer(taskName, timeDisplay, isResting, true, routineId);
   }
 
   if (type === 'STOP_PERSISTENT_TIMER') {
@@ -112,10 +114,11 @@ self.addEventListener('message', (event) => {
   }
 });
 
-function showPersistentTimer(taskName, timeDisplay, isResting, silent) {
+function showPersistentTimer(taskName, timeDisplay, isResting, silent, routineId) {
   const emoji = isResting ? '🌴' : '⏱️';
   const title = `${emoji} ${taskName}`;
   const body = timeDisplay;
+  const url = routineId ? `/?routineId=${encodeURIComponent(routineId)}&timer=1` : '/';
 
   self.registration.showNotification(title, {
     body,
@@ -126,7 +129,7 @@ function showPersistentTimer(taskName, timeDisplay, isResting, silent) {
     silent: !!silent,
     renotify: !silent,
     vibrate: silent ? [] : [100, 50, 100],
-    data: { url: '/', isPersistentTimer: true },
+    data: { url, routineId, openTimer: true, isPersistentTimer: true },
     ongoing: true,
     actions: [{ action: 'open', title: '▶ Abrir App' }],
   });
@@ -159,9 +162,13 @@ self.addEventListener('notificationclick', (event) => {
       for (const client of clients) {
         if (client.url.includes(self.location.origin)) {
           client.focus();
-          // Send message to open the active timer screen
-          if (notifData.isPersistentTimer || event.action === 'open') {
-            client.postMessage({ type: 'NOTIFICATION_CLICKED', url });
+          if (notifData.openTimer || notifData.isPersistentTimer || event.action === 'open') {
+            client.postMessage({
+              type: 'NOTIFICATION_CLICKED',
+              url,
+              routineId: notifData.routineId,
+              openTimer: !!notifData.openTimer,
+            });
           }
           return;
         }

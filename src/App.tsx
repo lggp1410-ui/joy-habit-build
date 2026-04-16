@@ -56,7 +56,7 @@ function WelcomeOverlay() {
 
 function AppContent() {
   const { isAuthenticated, loading, continueAsGuest, user } = useAuth();
-  const { setShowWelcome } = useRoutineStore();
+  const { setShowWelcome, setActiveRoutine, setActiveTab } = useRoutineStore();
   const [prevAuth, setPrevAuth] = useState(false);
   useRecentIconsSync(user?.id);
   useRoutinesSync(user?.id);
@@ -67,6 +67,42 @@ function AppContent() {
     }
     setPrevAuth(isAuthenticated);
   }, [isAuthenticated, user]);
+
+  useEffect(() => {
+    const openFromUrl = (urlValue?: string, routineIdValue?: string, openTimerValue?: boolean) => {
+      try {
+        const parsed = new URL(urlValue || window.location.href, window.location.origin);
+        const routineId = routineIdValue || parsed.searchParams.get('routineId') || undefined;
+        const openTimer = openTimerValue || parsed.searchParams.get('timer') === '1';
+        if (!routineId) return;
+
+        setActiveTab('home');
+        setActiveRoutine(routineId);
+
+        if (openTimer) {
+          sessionStorage.setItem('planlizz-open-timer-routine', routineId);
+          window.dispatchEvent(new CustomEvent('planlizz-open-timer', {
+            detail: { routineId, openTimer: true },
+          }));
+        }
+
+        if (parsed.searchParams.has('routineId') || parsed.searchParams.has('timer')) {
+          window.history.replaceState({}, '', window.location.pathname);
+        }
+      } catch {}
+    };
+
+    openFromUrl();
+
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'NOTIFICATION_CLICKED') {
+        openFromUrl(event.data.url, event.data.routineId, event.data.openTimer);
+      }
+    };
+
+    navigator.serviceWorker?.addEventListener('message', handleMessage);
+    return () => navigator.serviceWorker?.removeEventListener('message', handleMessage);
+  }, [setActiveRoutine, setActiveTab]);
 
   if (loading) {
     return (

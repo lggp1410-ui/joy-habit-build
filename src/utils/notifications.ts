@@ -20,6 +20,7 @@ export async function showNotification(
     vibrate?: number[];
     requireInteraction?: boolean;
     data?: unknown;
+    actions?: { action: string; title: string }[];
   }
 ): Promise<void> {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
@@ -34,6 +35,7 @@ export async function showNotification(
     silent: false,
     renotify: true,
     data: options?.data ?? { url: '/' },
+    actions: options?.actions,
   };
 
   try {
@@ -116,8 +118,10 @@ async function showPersistentTimerStatus(
   taskName: string,
   timeDisplay: string,
   isResting: boolean,
-  silent: boolean
+  silent: boolean,
+  routineId?: string
 ): Promise<void> {
+  const url = routineId ? `/?routineId=${encodeURIComponent(routineId)}&timer=1` : '/';
   const title = `${isResting ? '🌴' : '⏱️'} ${taskName}`;
   const options = {
     body: timeDisplay,
@@ -128,7 +132,8 @@ async function showPersistentTimerStatus(
     silent,
     renotify: !silent,
     vibrate: silent ? [] : [100, 50, 100],
-    data: { url: '/', isPersistentTimer: true },
+    data: { url, routineId, openTimer: true, isPersistentTimer: true },
+    ongoing: true,
     actions: [{ action: 'open', title: '▶ Abrir App' }],
   } as NotificationOptions;
 
@@ -150,19 +155,21 @@ async function showPersistentTimerStatus(
 export async function startPersistentTimerNotification(
   taskName: string,
   timeDisplay: string,
-  isResting: boolean
+  isResting: boolean,
+  routineId?: string
 ): Promise<void> {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
-  await showPersistentTimerStatus(taskName, timeDisplay, isResting, false);
+  await showPersistentTimerStatus(taskName, timeDisplay, isResting, false, routineId);
 }
 
 export async function updatePersistentTimerNotification(
   taskName: string,
   timeDisplay: string,
-  isResting: boolean
+  isResting: boolean,
+  routineId?: string
 ): Promise<void> {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
-  await showPersistentTimerStatus(taskName, timeDisplay, isResting, true);
+  await showPersistentTimerStatus(taskName, timeDisplay, isResting, true, routineId);
 }
 
 export async function stopPersistentTimerNotification(): Promise<void> {
@@ -177,7 +184,7 @@ export async function scheduleTimerNotification(
   title: string,
   body: string,
   tag?: string,
-  options?: { playSound?: boolean; soundUrl?: string }
+  options?: { playSound?: boolean; soundUrl?: string; data?: unknown }
 ): Promise<void> {
   const sent = await postToTimerSW({
     type: 'SCHEDULE_NOTIFICATION',
@@ -190,6 +197,7 @@ export async function scheduleTimerNotification(
     requireInteraction: true,
     playSound: options?.playSound || false,
     soundUrl: options?.soundUrl || '',
+    data: options?.data ?? { url: '/' },
   });
   if (!sent) {
     setTimeout(() => {
@@ -197,6 +205,7 @@ export async function scheduleTimerNotification(
         tag: tag || 'timer-task',
         vibrate: [300, 100, 300, 100, 300],
         requireInteraction: true,
+        data: options?.data ?? { url: '/' },
       });
     }, delayMs);
   }
@@ -257,6 +266,12 @@ export function scheduleRoutineReminder(routine: Routine, dayLabels: string[]): 
     const body = isMoment
       ? `Está na hora de começar ${routine.name}! Toque para iniciar o momento! ⭐`
       : `Está na hora de começar ${routine.name}! Toque para iniciar a rotina! 💐`;
+    const data = {
+      url: `/?routineId=${encodeURIComponent(routine.id)}&timer=1`,
+      routineId: routine.id,
+      openTimer: true,
+      type: isMoment ? 'moment-reminder' : 'routine-reminder',
+    };
 
     // Primary: schedule via Service Worker for background delivery
     scheduleTimerNotification(
@@ -264,7 +279,8 @@ export function scheduleRoutineReminder(routine: Routine, dayLabels: string[]): 
       delay,
       title,
       body,
-      `reminder-${routine.id}`
+      `reminder-${routine.id}`,
+      { data }
     );
 
     // Fallback: setTimeout for when the app is open
@@ -273,6 +289,8 @@ export function scheduleRoutineReminder(routine: Routine, dayLabels: string[]): 
         tag: `reminder-${routine.id}`,
         vibrate: [300, 100, 300, 100, 300],
         requireInteraction: true,
+        data,
+        actions: [{ action: 'open', title: '▶ Abrir App' }],
       });
       scheduledTimers.delete(routine.id);
     }, delay);

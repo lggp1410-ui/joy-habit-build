@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Pencil, Plus, CheckCircle, MoreVertical, Copy, Trash2, GripVertical } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -21,6 +21,35 @@ export function RoutineDetail() {
   const dragStartY = useRef(0);
   const taskListRef = useRef<HTMLDivElement>(null);
   const routine = routines.find(r => r.id === activeRoutineId);
+
+  useEffect(() => {
+    if (!routine) return;
+
+    const maybeOpenTimer = () => {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const routineId = params.get('routineId');
+        const shouldOpen = params.get('timer') === '1';
+        const pendingRoutineId = sessionStorage.getItem('planlizz-open-timer-routine');
+        if ((shouldOpen && routineId === routine.id) || pendingRoutineId === routine.id) {
+          sessionStorage.removeItem('planlizz-open-timer-routine');
+          window.history.replaceState({}, '', window.location.pathname);
+          setShowTimer(true);
+        }
+      } catch {}
+    };
+
+    const handleNotificationOpen = (event: Event) => {
+      const detail = (event as CustomEvent<{ routineId?: string; openTimer?: boolean }>).detail;
+      if (detail?.openTimer && detail.routineId === routine.id) {
+        setShowTimer(true);
+      }
+    };
+
+    maybeOpenTimer();
+    window.addEventListener('planlizz-open-timer', handleNotificationOpen);
+    return () => window.removeEventListener('planlizz-open-timer', handleNotificationOpen);
+  }, [routine]);
 
   if (!routine) return null;
 

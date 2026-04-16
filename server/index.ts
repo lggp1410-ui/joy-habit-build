@@ -328,6 +328,10 @@ function sanitizePath(str: string): string {
     .replace(/-+/g, "-");
 }
 
+function normalizeCategoryName(str: string): string {
+  return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
 async function toBase64_128px(imageUrl: string): Promise<string | null> {
   try {
     const resp = await fetch(imageUrl);
@@ -392,12 +396,12 @@ async function syncIconsFromAirtable(): Promise<{ inserted: number; updated: num
 
   for (const record of allRecords) {
     const fields = record.fields || {};
-    const category = fields["Notes"] || fields["Name"] || fields["Category"] || "Other";
+      const category = fields["Notes"] || fields["Name"] || fields["Category"] || "Other";
     const attachments = fields["Anexos"] || fields["Attachments"] || [];
 
     for (const att of attachments) {
       if (!att.url || !att.filename) continue;
-      const safeCat = sanitizePath(category);
+      const safeCat = normalizeCategoryName(String(category)).replace(/\s+/g, "-");
       const safeFile = sanitizePath(att.filename);
       const key = `${safeCat}/${safeFile}`;
 
@@ -475,11 +479,14 @@ app.get("/api/icons", async (_req, res) => {
       categoryMap[icon.category].icons.push({ url, filename: icon.filename });
     }
 
-    const categories = CATEGORY_ORDER.filter((cat) => categoryMap[cat])
-      .map((cat) => categoryMap[cat])
+    const normalizedCategoryMap = Object.fromEntries(
+      Object.entries(categoryMap).map(([name, value]) => [normalizeCategoryName(name), value])
+    );
+    const categories = CATEGORY_ORDER.filter((cat) => normalizedCategoryMap[cat])
+      .map((cat) => normalizedCategoryMap[cat])
       .concat(
         Object.keys(categoryMap)
-          .filter((cat) => !CATEGORY_ORDER.includes(cat))
+          .filter((cat) => !CATEGORY_ORDER.includes(normalizeCategoryName(cat)))
           .map((cat) => categoryMap[cat])
       )
       .filter((c) => c.icons.length > 0);
