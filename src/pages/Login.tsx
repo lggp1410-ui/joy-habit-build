@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { lovable } from '@/integrations/lovable/index';
+import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 
 interface LoginProps {
@@ -9,12 +9,12 @@ interface LoginProps {
 
 export default function Login({ onGuest }: LoginProps) {
   const { t } = useTranslation();
+  const { signInWithGoogle } = useAuth();
 
-  const handleGoogleSignIn = async () => {
-    const { error } = await lovable.auth.signInWithOAuth('google', {
-      redirect_uri: window.location.origin,
-    });
-    if (error) {
+  const handleGoogleSignIn = () => {
+    try {
+      signInWithGoogle();
+    } catch {
       toast.error(t('settings.signInError', 'Sign in failed. Please try again.'));
     }
   };

@@ -1,5 +1,4 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useRoutineStore } from '@/stores/routineStore';
 import { Routine } from '@/types/routine';
 import { getLocalRoutines, setLocalRoutines } from '@/lib/localDb';
@@ -29,21 +28,14 @@ export function useRoutinesSync(userId: string | undefined) {
     });
   }, [setRoutines]);
 
-  const syncFromDb = useCallback(async () => {
-    if (!userId) return;
+  const syncFromServer = useCallback(async () => {
+    // Guests: no server sync, local-only
+    if (!userId || userId.startsWith('guest')) return;
     try {
-      const { data, error } = await supabase
-        .from('user_preferences')
-        .select('routines')
-        .eq('user_id', userId)
-        .maybeSingle();
+      const res = await fetch('/api/preferences', { credentials: 'include' });
+      if (!res.ok) return;
 
-      if (error) {
-        console.error('Failed to load routines:', error);
-        return;
-      }
-
-      const dbRoutines: Routine[] = (data?.routines as unknown as Routine[]) ?? [];
+      const { routines: dbRoutines }: { routines: Routine[] } = await res.json();
       const localRoutines = useRoutineStore.getState().routines;
 
       const dbIds = new Set(dbRoutines.map(r => r.id));
@@ -55,7 +47,7 @@ export function useRoutinesSync(userId: string | undefined) {
       hasSyncedRef.current = true;
 
       if (localOnly.length > 0) {
-        await upsertToDb(userId, merged);
+        await saveToServer(merged);
       }
     } catch (err) {
       console.error('Routines sync error:', err);
@@ -64,31 +56,31 @@ export function useRoutinesSync(userId: string | undefined) {
 
   useEffect(() => {
     if (!userId || hasSyncedRef.current) return;
-    syncFromDb();
-  }, [userId, syncFromDb]);
+    syncFromServer();
+  }, [userId, syncFromServer]);
 
   useEffect(() => {
     if (!userId) return;
     const handleOnline = () => {
       if (hasSyncedRef.current) {
-        upsertToDb(userId, useRoutineStore.getState().routines);
+        saveToServer(useRoutineStore.getState().routines);
       } else {
-        syncFromDb();
+        syncFromServer();
       }
     };
     window.addEventListener('online', handleOnline);
     return () => window.removeEventListener('online', handleOnline);
-  }, [userId, syncFromDb]);
+  }, [userId, syncFromServer]);
 
   useEffect(() => {
     if (!userId || !hasSyncedRef.current) return;
+    if (userId.startsWith('guest')) return;
 
-    // Save to IndexedDB immediately
     setLocalRoutines(routines);
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      upsertToDb(userId, routines);
+      saveToServer(routines);
     }, 500);
 
     return () => {
@@ -97,17 +89,16 @@ export function useRoutinesSync(userId: string | undefined) {
   }, [routines, userId]);
 }
 
-async function upsertToDb(userId: string, routines: Routine[]) {
+async function saveToServer(routines: Routine[]) {
   try {
     if (!navigator.onLine) return;
-    const { error } = await supabase
-      .from('user_preferences')
-      .upsert(
-        { user_id: userId, routines: routines as unknown as any, updated_at: new Date().toISOString() },
-        { onConflict: 'user_id' }
-      );
-    if (error) console.error('Failed to save routines:', error);
+    await fetch('/api/preferences', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ routines }),
+    });
   } catch (err) {
-    console.error('Upsert routines error:', err);
+    console.error('Save routines error:', err);
   }
 }

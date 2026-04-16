@@ -4,7 +4,6 @@ import { Globe, Palette, Volume2, LogIn, LogOut, Info, ChevronRight, Heart, Chec
 import { useTranslation } from 'react-i18next';
 import { LANGUAGES } from '@/i18n';
 import { useAuth } from '@/hooks/useAuth';
-import { lovable } from '@/integrations/lovable/index';
 import { toast } from 'sonner';
 import { resetTutorial } from '@/components/TutorialOverlay';
 import { useRoutineStore } from '@/stores/routineStore';
@@ -58,11 +57,14 @@ export function SettingsScreen() {
     localStorage.getItem('planlizz-sound') || 'pop'
   );
 
-  const handleGoogleSignIn = async () => {
-    const { error } = await lovable.auth.signInWithOAuth('google', {
-      redirect_uri: window.location.origin,
-    });
-    if (error) toast.error(t('settings.signInError', 'Sign in failed.'));
+  const { signInWithGoogle } = useAuth();
+
+  const handleGoogleSignIn = () => {
+    try {
+      signInWithGoogle();
+    } catch {
+      toast.error(t('settings.signInError', 'Sign in failed.'));
+    }
   };
 
   const handleViewTutorial = () => {
@@ -108,7 +110,7 @@ export function SettingsScreen() {
       title: t('settings.account'),
       items: [
         ...(user
-          ? [{ icon: LogOut, label: t('settings.signOut', 'Sign out'), value: user.email ?? '', action: true, onClick: signOut }]
+          ? [{ icon: LogOut, label: t('settings.signOut', 'Sign out'), value: user.name ?? '', action: true, onClick: signOut }]
           : [{ icon: LogIn, label: t('settings.signInGoogle'), value: '', action: true, onClick: handleGoogleSignIn }]
         ),
         { icon: Info, label: t('settings.aboutApp'), value: 'v1.0', action: true, onClick: () => setShowAbout(true) },

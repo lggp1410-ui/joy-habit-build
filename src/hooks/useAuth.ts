@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import type { User, Session } from '@supabase/supabase-js';
+
+export interface AuthUser {
+  id: string;
+  name?: string;
+  avatar?: string;
+}
 
 interface AuthState {
-  user: User | null;
-  session: Session | null;
+  user: AuthUser | null;
   isGuest: boolean;
   loading: boolean;
 }
@@ -12,46 +15,47 @@ interface AuthState {
 export function useAuth() {
   const [state, setState] = useState<AuthState>({
     user: null,
-    session: null,
     isGuest: localStorage.getItem('planlizz-guest') === 'true',
     loading: true,
   });
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setState(prev => ({
-        ...prev,
-        user: session?.user ?? null,
-        session,
-        isGuest: !session ? prev.isGuest : false,
-        loading: false,
-      }));
-    });
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setState(prev => ({
-        ...prev,
-        user: session?.user ?? null,
-        session,
-        loading: false,
-      }));
-    });
-
-    return () => subscription.unsubscribe();
+    fetch('/api/auth/user', { credentials: 'include' })
+      .then((r) => r.json())
+      .then(({ user }) => {
+        setState((prev) => ({
+          ...prev,
+          user: user ?? null,
+          isGuest: !user ? prev.isGuest : false,
+          loading: false,
+        }));
+      })
+      .catch(() => {
+        setState((prev) => ({ ...prev, loading: false }));
+      });
   }, []);
 
-  const continueAsGuest = () => {
+  const continueAsGuest = async () => {
+    await fetch('/api/auth/guest', { method: 'POST', credentials: 'include' });
     localStorage.setItem('planlizz-guest', 'true');
-    setState(prev => ({ ...prev, isGuest: true }));
+    setState((prev) => ({
+      ...prev,
+      isGuest: true,
+      user: { id: 'guest', name: 'Guest' },
+    }));
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
     localStorage.removeItem('planlizz-guest');
-    setState({ user: null, session: null, isGuest: false, loading: false });
+    setState({ user: null, isGuest: false, loading: false });
+  };
+
+  const signInWithGoogle = () => {
+    window.location.href = '/api/auth/login';
   };
 
   const isAuthenticated = !!state.user || state.isGuest;
 
-  return { ...state, isAuthenticated, continueAsGuest, signOut };
+  return { ...state, isAuthenticated, continueAsGuest, signOut, signInWithGoogle };
 }

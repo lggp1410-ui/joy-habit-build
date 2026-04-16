@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 
 export interface AirtableIcon {
   url: string;
@@ -12,7 +11,7 @@ export interface AirtableCategory {
 }
 
 const CACHE_KEY = 'planlizz_airtable_icons';
-const CACHE_TTL = 1 * 60 * 60 * 1000; // 1 hour (Airtable URLs expire ~2h)
+const CACHE_TTL = 1 * 60 * 60 * 1000; // 1 hour
 
 interface CachedData {
   categories: AirtableCategory[];
@@ -43,6 +42,16 @@ function setCache(categories: AirtableCategory[]) {
   }
 }
 
+function getCachedStale(): AirtableCategory[] | null {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw).categories || null;
+  } catch {
+    return null;
+  }
+}
+
 function filterValidIcons(categories: AirtableCategory[]): AirtableCategory[] {
   return categories.map(cat => {
     const seen = new Set<string>();
@@ -67,34 +76,32 @@ export function useAirtableIcons() {
     let cancelled = false;
 
     async function fetchIcons() {
-      // Try cache first
       const cached = getCached();
       if (cached && cached.length > 0) {
         setCategories(filterValidIcons(cached));
         setIsLoading(false);
-        // Still refresh in background
         refreshFromServer(cancelled);
         return;
       }
-
       await refreshFromServer(cancelled);
     }
 
     async function refreshFromServer(isCancelled: boolean) {
       try {
-        const { data, error: fnError } = await supabase.functions.invoke('airtable-icons');
-
+        const res = await fetch('/api/icons');
         if (isCancelled) return;
 
-        if (fnError) {
-          console.error('Edge function error:', fnError);
-          setError(fnError.message);
+        if (!res.ok) {
+          const msg = `Icons API error: ${res.status}`;
+          console.error(msg);
+          setError(msg);
           const stale = getCachedStale();
           if (stale) setCategories(filterValidIcons(stale));
           setIsLoading(false);
           return;
         }
 
+        const data = await res.json();
         if (data?.categories && data.categories.length > 0) {
           const filtered = filterValidIcons(data.categories);
           setCategories(filtered);
@@ -103,7 +110,7 @@ export function useAirtableIcons() {
         setIsLoading(false);
       } catch (err: any) {
         if (isCancelled) return;
-        console.error('Fetch error:', err);
+        console.error('Fetch icons error:', err);
         setError(err.message);
         const stale = getCachedStale();
         if (stale) setCategories(filterValidIcons(stale));
@@ -116,14 +123,4 @@ export function useAirtableIcons() {
   }, []);
 
   return { categories, isLoading, error };
-}
-
-function getCachedStale(): AirtableCategory[] | null {
-  try {
-    const raw = localStorage.getItem(CACHE_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw).categories || null;
-  } catch {
-    return null;
-  }
 }
