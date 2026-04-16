@@ -217,7 +217,6 @@ app.get("/api/icons", async (_req, res) => {
       return;
     }
 
-    const supabaseUrl = process.env.SUPABASE_URL;
     const categoryMap: Record<
       string,
       { name: string; icons: { url: string; filename: string }[] }
@@ -232,11 +231,9 @@ app.get("/api/icons", async (_req, res) => {
       if (seenPerCategory[icon.category].has(icon.filename)) continue;
       seenPerCategory[icon.category].add(icon.filename);
 
-      // storagePath may be a full URL (Airtable attachment) or a relative path
+      // storagePath is stored as full Airtable URL or relative path
       const url = icon.storagePath.startsWith("http")
         ? icon.storagePath
-        : supabaseUrl
-        ? `${supabaseUrl}/storage/v1/object/public/icons/${icon.storagePath}`
         : `/icons/${icon.storagePath}`;
 
       categoryMap[icon.category].icons.push({ url, filename: icon.filename });

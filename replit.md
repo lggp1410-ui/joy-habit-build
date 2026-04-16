@@ -26,17 +26,18 @@ PlanLizz is a React + TypeScript daily routine planner app (PWA). Migrated from 
 
 ## Dev Commands
 ```bash
-npm run dev       # Start both server (3001) and client (5000) in parallel
-npm run db:push   # Push schema to database
+npm run start     # Start both Express server (3001) and Vite dev server (5000) in parallel
+npm run server    # Start Express server only
+npm run dev       # Start Vite dev server only
+npm run db:push   # Push schema changes to the database
 ```
 
 ## Environment Variables
-- `DATABASE_URL` — PostgreSQL connection string (auto-provisioned)
-- `SESSION_SECRET` — Secret for Express sessions (optional, defaults to dev value)
+- `DATABASE_URL` — PostgreSQL connection string (auto-provisioned by Replit)
+- `SESSION_SECRET` — Secret for Express sessions (set via Replit Secrets)
 - `AIRTABLE_API_KEY` — For syncing icons from Airtable (optional)
 - `AIRTABLE_BASE_ID` — For syncing icons from Airtable (optional)
-- `REPLIT_CLIENT_ID` / `REPLIT_CLIENT_SECRET` / `REPLIT_APP_URL` — For full Replit OIDC auth (optional; app works in demo mode without these)
-- `SUPABASE_URL` — Legacy, used only to build public icon URLs if icons are still stored in Supabase storage (optional)
+- `REPLIT_CLIENT_ID` / `REPLIT_CLIENT_SECRET` / `REPLIT_APP_URL` — For full Replit OIDC auth (optional; app works in guest/demo mode without these)
 
 ## Migration Notes (from Lovable)
 - Removed: `vite-plugin-pwa`, `@lovable.dev/cloud-auth-js`, `lovable-tagger`, `@supabase/supabase-js`
