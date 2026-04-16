@@ -4,7 +4,7 @@ import cors from "cors";
 import sharp from "sharp";
 import { db } from "./db.js";
 import { userPreferences, icons } from "../shared/schema.js";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 
 const app = express();
 const PORT = process.env.SERVER_PORT || 3001;
@@ -205,6 +205,126 @@ const CATEGORY_ORDER = [
   "Lanches/Bebidas", "Pets", "Eletronicos", "Comercio", "Musica", "Religiao",
 ];
 
+function sanitizePath(str: string): string {
+  return str
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/[^a-zA-Z0-9\-_./]/g, "")
+    .replace(/-+/g, "-");
+}
+
+async function toBase64_128px(imageUrl: string): Promise<string | null> {
+  try {
+    const resp = await fetch(imageUrl);
+    if (!resp.ok) return null;
+    const arrayBuf = await resp.arrayBuffer();
+    const buffer = Buffer.from(arrayBuf);
+    const resized = await sharp(buffer)
+      .resize(128, 128, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+      .png()
+      .toBuffer();
+    return resized.toString("base64");
+  } catch {
+    return null;
+  }
+}
+
+async function syncIconsFromAirtable(): Promise<{ inserted: number; updated: number; skipped: number; errors: number; total_records: number } | { error: string }> {
+  const apiKey = process.env.AIRTABLE_API_KEY;
+  const baseId = process.env.AIRTABLE_BASE_ID;
+
+  if (!apiKey || !baseId) {
+    return { error: "Airtable credentials not configured" };
+  }
+
+  const tableName = "tblNPJDonQwlhTADO";
+  let allRecords: any[] = [];
+  let offset: string | undefined;
+
+  do {
+    const url = new URL(`https://api.airtable.com/v0/${baseId}/${tableName}`);
+    url.searchParams.set("pageSize", "100");
+    if (offset) url.searchParams.set("offset", offset);
+
+    const aRes = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+
+    if (!aRes.ok) {
+      const err = await aRes.text();
+      return { error: `Airtable fetch failed: ${err}` };
+    }
+
+    const data = await aRes.json() as { records: any[]; offset?: string };
+    allRecords = allRecords.concat(data.records || []);
+    offset = data.offset;
+  } while (offset);
+
+  const existingRows = await db
+    .select({ category: icons.category, filename: icons.filename, data: icons.data })
+    .from(icons);
+  const existingWithData = new Set(
+    existingRows.filter(i => i.data).map(i => `${i.category}/${i.filename}`)
+  );
+  const existingAll = new Set(
+    existingRows.map(i => `${i.category}/${i.filename}`)
+  );
+
+  let inserted = 0;
+  let updated = 0;
+  let skipped = 0;
+  let errors = 0;
+
+  for (const record of allRecords) {
+    const fields = record.fields || {};
+    const category = fields["Notes"] || fields["Name"] || fields["Category"] || "Other";
+    const attachments = fields["Anexos"] || fields["Attachments"] || [];
+
+    for (const att of attachments) {
+      if (!att.url || !att.filename) continue;
+      const safeCat = sanitizePath(category);
+      const safeFile = sanitizePath(att.filename);
+      const key = `${safeCat}/${safeFile}`;
+
+      if (existingWithData.has(key)) {
+        skipped++;
+        continue;
+      }
+
+      const b64 = await toBase64_128px(att.url);
+      if (!b64) {
+        errors++;
+        continue;
+      }
+
+      try {
+        if (existingAll.has(key)) {
+          await db.update(icons)
+            .set({ data: b64 })
+            .where(and(eq(icons.category, safeCat), eq(icons.filename, safeFile)));
+          updated++;
+        } else {
+          await db.insert(icons).values({
+            category: safeCat,
+            filename: safeFile,
+            storagePath: att.url,
+            data: b64,
+          });
+          inserted++;
+        }
+        existingWithData.add(key);
+        existingAll.add(key);
+      } catch (e) {
+        console.error("Error saving icon:", att.filename, e);
+        errors++;
+      }
+    }
+  }
+
+  return { total_records: allRecords.length, inserted, updated, skipped, errors };
+}
+
 // GET /api/icons — return icons grouped by category (base64 data when available)
 app.get("/api/icons", async (_req, res) => {
   try {
@@ -261,131 +381,12 @@ app.get("/api/icons", async (_req, res) => {
 // POST /api/icons/sync — sync icons from Airtable, store as 128px base64 in DB
 app.post("/api/icons/sync", async (_req, res) => {
   try {
-    const apiKey = process.env.AIRTABLE_API_KEY;
-    const baseId = process.env.AIRTABLE_BASE_ID;
-
-    if (!apiKey || !baseId) {
-      res.status(500).json({ error: "Airtable credentials not configured" });
+    const result = await syncIconsFromAirtable();
+    if ("error" in result) {
+      res.status(500).json({ error: result.error });
       return;
     }
-
-    function sanitizePath(str: string): string {
-      return str
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .replace(/\s+/g, "-")
-        .replace(/[^a-zA-Z0-9\-_./]/g, "")
-        .replace(/-+/g, "-");
-    }
-
-    async function toBase64_128px(imageUrl: string): Promise<string | null> {
-      try {
-        const resp = await fetch(imageUrl);
-        if (!resp.ok) return null;
-        const arrayBuf = await resp.arrayBuffer();
-        const buffer = Buffer.from(arrayBuf);
-        const resized = await sharp(buffer)
-          .resize(128, 128, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
-          .png()
-          .toBuffer();
-        return resized.toString("base64");
-      } catch {
-        return null;
-      }
-    }
-
-    const tableName = "tblNPJDonQwlhTADO";
-    let allRecords: any[] = [];
-    let offset: string | undefined;
-
-    do {
-      const url = new URL(`https://api.airtable.com/v0/${baseId}/${tableName}`);
-      url.searchParams.set("pageSize", "100");
-      if (offset) url.searchParams.set("offset", offset);
-
-      const aRes = await fetch(url.toString(), {
-        headers: { Authorization: `Bearer ${apiKey}` },
-      });
-
-      if (!aRes.ok) {
-        const err = await aRes.text();
-        res.status(aRes.status).json({ error: "Airtable fetch failed", details: err });
-        return;
-      }
-
-      const data = await aRes.json() as { records: any[]; offset?: string };
-      allRecords = allRecords.concat(data.records || []);
-      offset = data.offset;
-    } while (offset);
-
-    // Get existing icons to avoid re-syncing already converted ones
-    const existingRows = await db
-      .select({ category: icons.category, filename: icons.filename, data: icons.data })
-      .from(icons);
-    const existingWithData = new Set(
-      existingRows.filter(i => i.data).map(i => `${i.category}/${i.filename}`)
-    );
-    const existingAll = new Set(
-      existingRows.map(i => `${i.category}/${i.filename}`)
-    );
-
-    let inserted = 0;
-    let updated = 0;
-    let skipped = 0;
-    let errors = 0;
-
-    for (const record of allRecords) {
-      const fields = record.fields || {};
-      const category = fields["Notes"] || fields["Name"] || fields["Category"] || "Other";
-      const attachments = fields["Anexos"] || fields["Attachments"] || [];
-
-      for (const att of attachments) {
-        if (!att.url || !att.filename) continue;
-        const safeCat = sanitizePath(category);
-        const safeFile = sanitizePath(att.filename);
-        const key = `${safeCat}/${safeFile}`;
-
-        // Already has base64 data — skip
-        if (existingWithData.has(key)) {
-          skipped++;
-          continue;
-        }
-
-        const b64 = await toBase64_128px(att.url);
-        if (!b64) {
-          errors++;
-          continue;
-        }
-
-        try {
-          if (existingAll.has(key)) {
-            // Update existing row to add base64 data
-            await db.update(icons)
-              .set({ data: b64 })
-              .where(eq(icons.category, safeCat));
-            updated++;
-          } else {
-            await db.insert(icons).values({
-              category: safeCat,
-              filename: safeFile,
-              storagePath: att.url,
-              data: b64,
-            });
-            inserted++;
-          }
-          existingWithData.add(key);
-          existingAll.add(key);
-        } catch (e) {
-          console.error("Error saving icon:", att.filename, e);
-          errors++;
-        }
-      }
-    }
-
-    res.json({
-      success: true,
-      stats: { total_records: allRecords.length, inserted, updated, skipped, errors },
-    });
+    res.json({ success: true, stats: result });
   } catch (err) {
     console.error("Sync error:", err);
     res.status(500).json({ error: "Internal server error" });
@@ -395,3 +396,26 @@ app.post("/api/icons/sync", async (_req, res) => {
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
+// Auto-sync icons in the background if the DB is empty
+async function autoSyncIconsIfEmpty() {
+  try {
+    const rows = await db.select({ filename: icons.filename }).from(icons).limit(1);
+    if (rows.length === 0) {
+      console.log("[Icons] DB is empty — starting background Airtable sync...");
+      const result = await syncIconsFromAirtable();
+      if ("error" in result) {
+        console.error("[Icons] Auto-sync failed:", result.error);
+      } else {
+        console.log(`[Icons] Auto-sync done: ${result.inserted} inserted, ${result.skipped} skipped, ${result.errors} errors.`);
+      }
+    } else {
+      console.log("[Icons] DB already has icons — skipping auto-sync.");
+    }
+  } catch (e) {
+    console.error("[Icons] Startup icon check failed:", e);
+  }
+}
+
+// Run startup check after a short delay to let the server fully initialize
+setTimeout(() => autoSyncIconsIfEmpty(), 2000);

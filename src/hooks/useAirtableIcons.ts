@@ -76,14 +76,17 @@ export function useAirtableIcons() {
 
   useEffect(() => {
     let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
-    async function fetchIcons() {
-      const cached = getCached();
-      if (cached && cached.length > 0) {
-        setCategories(filterValidIcons(cached));
-        setIsLoading(false);
-        refreshFromServer(cancelled);
-        return;
+    async function fetchIcons(isRetry = false) {
+      if (!isRetry) {
+        const cached = getCached();
+        if (cached && cached.length > 0) {
+          setCategories(filterValidIcons(cached));
+          setIsLoading(false);
+          refreshFromServer(cancelled);
+          return;
+        }
       }
       await refreshFromServer(cancelled);
     }
@@ -108,8 +111,16 @@ export function useAirtableIcons() {
           const filtered = filterValidIcons(data.categories);
           setCategories(filtered);
           setCache(filtered);
+          setIsLoading(false);
+        } else {
+          // DB is empty — server may still be syncing; retry after 8 seconds
+          setIsLoading(false);
+          if (!isCancelled) {
+            retryTimer = setTimeout(() => {
+              if (!isCancelled) fetchIcons(true);
+            }, 8000);
+          }
         }
-        setIsLoading(false);
       } catch (err: any) {
         if (isCancelled) return;
         console.error('Fetch icons error:', err);
@@ -121,7 +132,10 @@ export function useAirtableIcons() {
     }
 
     fetchIcons();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      if (retryTimer) clearTimeout(retryTimer);
+    };
   }, []);
 
   return { categories, isLoading, error };

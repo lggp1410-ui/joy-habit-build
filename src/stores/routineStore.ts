@@ -42,6 +42,23 @@ interface RoutineStore {
   convertToRoutine: (id: string, days: string[]) => void;
 }
 
+const SESSION_RECENT_ICONS_KEY = 'planlizz-recent-icons-session';
+
+function loadSessionRecentIcons(): string[] {
+  try {
+    const raw = sessionStorage.getItem(SESSION_RECENT_ICONS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveSessionRecentIcons(icons: string[]) {
+  try {
+    sessionStorage.setItem(SESSION_RECENT_ICONS_KEY, JSON.stringify(icons));
+  } catch {}
+}
+
 export const useRoutineStore = create<RoutineStore>()(
   persist(
     (set, get) => ({
@@ -50,7 +67,7 @@ export const useRoutineStore = create<RoutineStore>()(
       activeRoutineId: null,
       showCreateModal: false,
       showSuccessPopup: false,
-      recentIcons: [],
+      recentIcons: loadSessionRecentIcons(),
       editingRoutineId: null,
       showWelcome: false,
       showCreateMenu: false,
@@ -116,7 +133,9 @@ export const useRoutineStore = create<RoutineStore>()(
       addRecentIcon: (url) => set((s) => {
         const cleaned = s.recentIcons.filter(i => i && (i.startsWith('http') || i.startsWith('data:')));
         const filtered = cleaned.filter(i => i !== url);
-        return { recentIcons: [url, ...filtered] };
+        const next = [url, ...filtered];
+        saveSessionRecentIcons(next);
+        return { recentIcons: next };
       }),
       duplicateTask: (routineId, taskId) => set((s) => ({
         routines: s.routines.map(r => {
@@ -174,6 +193,12 @@ export const useRoutineStore = create<RoutineStore>()(
         )
       })),
     }),
-    { name: 'planlizz-routines' }
+    {
+      name: 'planlizz-routines',
+      partialize: (state) => {
+        const { recentIcons, ...rest } = state as any;
+        return rest;
+      },
+    }
   )
 );
