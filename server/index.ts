@@ -1,6 +1,7 @@
 import express from "express";
 import session from "express-session";
 import cors from "cors";
+import sharp from "sharp";
 import { db } from "./db.js";
 import { userPreferences, icons } from "../shared/schema.js";
 import { eq } from "drizzle-orm";
@@ -204,7 +205,7 @@ const CATEGORY_ORDER = [
   "Lanches/Bebidas", "Pets", "Eletronicos", "Comercio", "Musica", "Religiao",
 ];
 
-// GET /api/icons — return icons grouped by category
+// GET /api/icons — return icons grouped by category (base64 data when available)
 app.get("/api/icons", async (_req, res) => {
   try {
     const allIcons = await db
@@ -231,8 +232,10 @@ app.get("/api/icons", async (_req, res) => {
       if (seenPerCategory[icon.category].has(icon.filename)) continue;
       seenPerCategory[icon.category].add(icon.filename);
 
-      // storagePath is stored as full Airtable URL or relative path
-      const url = icon.storagePath.startsWith("http")
+      // Use base64 data: URL when available, fall back to remote URL
+      const url = icon.data
+        ? `data:image/png;base64,${icon.data}`
+        : icon.storagePath.startsWith("http")
         ? icon.storagePath
         : `/icons/${icon.storagePath}`;
 
@@ -255,7 +258,7 @@ app.get("/api/icons", async (_req, res) => {
   }
 });
 
-// POST /api/icons/sync — sync icons from Airtable into our DB
+// POST /api/icons/sync — sync icons from Airtable, store as 128px base64 in DB
 app.post("/api/icons/sync", async (_req, res) => {
   try {
     const apiKey = process.env.AIRTABLE_API_KEY;
@@ -275,14 +278,28 @@ app.post("/api/icons/sync", async (_req, res) => {
         .replace(/-+/g, "-");
     }
 
+    async function toBase64_128px(imageUrl: string): Promise<string | null> {
+      try {
+        const resp = await fetch(imageUrl);
+        if (!resp.ok) return null;
+        const arrayBuf = await resp.arrayBuffer();
+        const buffer = Buffer.from(arrayBuf);
+        const resized = await sharp(buffer)
+          .resize(128, 128, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+          .png()
+          .toBuffer();
+        return resized.toString("base64");
+      } catch {
+        return null;
+      }
+    }
+
     const tableName = "tblNPJDonQwlhTADO";
     let allRecords: any[] = [];
     let offset: string | undefined;
 
     do {
-      const url = new URL(
-        `https://api.airtable.com/v0/${baseId}/${tableName}`
-      );
+      const url = new URL(`https://api.airtable.com/v0/${baseId}/${tableName}`);
       url.searchParams.set("pageSize", "100");
       if (offset) url.searchParams.set("offset", offset);
 
@@ -292,9 +309,7 @@ app.post("/api/icons/sync", async (_req, res) => {
 
       if (!aRes.ok) {
         const err = await aRes.text();
-        res
-          .status(aRes.status)
-          .json({ error: "Airtable fetch failed", details: err });
+        res.status(aRes.status).json({ error: "Airtable fetch failed", details: err });
         return;
       }
 
@@ -303,44 +318,65 @@ app.post("/api/icons/sync", async (_req, res) => {
       offset = data.offset;
     } while (offset);
 
+    // Get existing icons to avoid re-syncing already converted ones
     const existingRows = await db
-      .select({ category: icons.category, filename: icons.filename })
+      .select({ category: icons.category, filename: icons.filename, data: icons.data })
       .from(icons);
-    const existingSet = new Set(
-      existingRows.map((i) => `${i.category}/${i.filename}`)
+    const existingWithData = new Set(
+      existingRows.filter(i => i.data).map(i => `${i.category}/${i.filename}`)
+    );
+    const existingAll = new Set(
+      existingRows.map(i => `${i.category}/${i.filename}`)
     );
 
-    let uploaded = 0;
+    let inserted = 0;
+    let updated = 0;
     let skipped = 0;
     let errors = 0;
 
     for (const record of allRecords) {
       const fields = record.fields || {};
-      const category =
-        fields["Notes"] || fields["Name"] || fields["Category"] || "Other";
-      const attachments =
-        fields["Anexos"] || fields["Attachments"] || [];
+      const category = fields["Notes"] || fields["Name"] || fields["Category"] || "Other";
+      const attachments = fields["Anexos"] || fields["Attachments"] || [];
 
       for (const att of attachments) {
         if (!att.url || !att.filename) continue;
         const safeCat = sanitizePath(category);
         const safeFile = sanitizePath(att.filename);
         const key = `${safeCat}/${safeFile}`;
-        if (existingSet.has(key)) {
+
+        // Already has base64 data — skip
+        if (existingWithData.has(key)) {
           skipped++;
           continue;
         }
 
+        const b64 = await toBase64_128px(att.url);
+        if (!b64) {
+          errors++;
+          continue;
+        }
+
         try {
-          await db.insert(icons).values({
-            category: safeCat,
-            filename: safeFile,
-            storagePath: att.url,
-          });
-          uploaded++;
-          existingSet.add(key);
+          if (existingAll.has(key)) {
+            // Update existing row to add base64 data
+            await db.update(icons)
+              .set({ data: b64 })
+              .where(eq(icons.category, safeCat));
+            updated++;
+          } else {
+            await db.insert(icons).values({
+              category: safeCat,
+              filename: safeFile,
+              storagePath: att.url,
+              data: b64,
+            });
+            inserted++;
+          }
+          existingWithData.add(key);
+          existingAll.add(key);
         } catch (e) {
-          console.error("Error inserting icon:", att.filename, e);
+          console.error("Error saving icon:", att.filename, e);
           errors++;
         }
       }
@@ -348,12 +384,7 @@ app.post("/api/icons/sync", async (_req, res) => {
 
     res.json({
       success: true,
-      stats: {
-        total_records: allRecords.length,
-        uploaded,
-        skipped,
-        errors,
-      },
+      stats: { total_records: allRecords.length, inserted, updated, skipped, errors },
     });
   } catch (err) {
     console.error("Sync error:", err);

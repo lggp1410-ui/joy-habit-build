@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Globe, Palette, Volume2, LogIn, LogOut, Info, ChevronRight, Heart, Check, ArrowLeft, Sun, Moon, Monitor, HelpCircle } from 'lucide-react';
+import { Globe, Palette, Volume2, LogIn, LogOut, Info, ChevronRight, Heart, Check, ArrowLeft, Sun, Moon, Monitor, HelpCircle, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { LANGUAGES } from '@/i18n';
 import { useAuth } from '@/hooks/useAuth';
@@ -58,12 +58,33 @@ export function SettingsScreen() {
   );
 
   const { signInWithGoogle } = useAuth();
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const handleGoogleSignIn = () => {
     try {
       signInWithGoogle();
     } catch {
       toast.error(t('settings.signInError', 'Sign in failed.'));
+    }
+  };
+
+  const handleSyncIcons = async () => {
+    setIsSyncing(true);
+    toast.info('Sincronizando ícones...', { duration: 3000 });
+    try {
+      const res = await fetch('/api/icons/sync', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        const { inserted = 0, updated = 0, skipped = 0, errors = 0 } = data.stats || {};
+        toast.success(`Ícones sincronizados! ${inserted} novos, ${updated} atualizados, ${skipped} já existiam, ${errors} erros.`, { duration: 6000 });
+        localStorage.removeItem('planlizz_airtable_icons');
+      } else {
+        toast.error(`Erro ao sincronizar: ${data.error}`);
+      }
+    } catch (e) {
+      toast.error('Falha na sincronização dos ícones.');
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -114,6 +135,18 @@ export function SettingsScreen() {
           : [{ icon: LogIn, label: t('settings.signInGoogle'), value: '', action: true, onClick: handleGoogleSignIn }]
         ),
         { icon: Info, label: t('settings.aboutApp'), value: 'v1.0', action: true, onClick: () => setShowAbout(true) },
+      ]
+    },
+    {
+      title: 'Administração',
+      items: [
+        {
+          icon: RefreshCw,
+          label: isSyncing ? 'Sincronizando ícones...' : 'Sincronizar Ícones',
+          value: '',
+          action: !isSyncing,
+          onClick: isSyncing ? () => {} : handleSyncIcons,
+        },
       ]
     }
   ];

@@ -5,6 +5,7 @@ export interface Task {
   completed: boolean;
   duration?: number; // in minutes (can be fractional, e.g. 0.5 = 30s)
   restTime?: number; // per-task rest time in minutes (can be fractional)
+  completionDates?: string[]; // "YYYY-MM-DD" dates when this task was completed
 }
 
 export function formatDuration(minutes: number): string {

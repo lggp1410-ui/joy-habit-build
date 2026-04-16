@@ -84,16 +84,26 @@ export const useRoutineStore = create<RoutineStore>()(
         return { routines: [...s.routines, copy] };
       }),
       toggleTask: (routineId, taskId) => {
+        const now = new Date();
+        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
         set((s) => {
           const routines = s.routines.map(r => {
             if (r.id !== routineId) return r;
-            const tasks = r.tasks.map(t => t.id === taskId ? { ...t, completed: !t.completed } : t);
+            const tasks = r.tasks.map(t => {
+              if (t.id !== taskId) return t;
+              const nowCompleted = !t.completed;
+              const dates = t.completionDates ?? [];
+              const updatedDates = nowCompleted
+                ? [...dates.filter(d => d !== todayStr), todayStr]
+                : dates.filter(d => d !== todayStr);
+              return { ...t, completed: nowCompleted, completionDates: updatedDates };
+            });
             return { ...r, tasks };
           });
-          
+
           const routine = routines.find(r => r.id === routineId);
           const allDone = routine?.tasks.every(t => t.completed);
-          
+
           return { routines, showSuccessPopup: allDone || false };
         });
       },

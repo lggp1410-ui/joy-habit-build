@@ -58,7 +58,9 @@ function filterValidIcons(categories: AirtableCategory[]): AirtableCategory[] {
     return {
       ...cat,
       icons: cat.icons.filter(icon => {
-        if (!icon.url || !icon.url.startsWith('http') || !icon.filename) return false;
+        if (!icon.url || !icon.filename) return false;
+        const isValid = icon.url.startsWith('http') || icon.url.startsWith('data:');
+        if (!isValid) return false;
         if (seen.has(icon.filename)) return false;
         seen.add(icon.filename);
         return true;

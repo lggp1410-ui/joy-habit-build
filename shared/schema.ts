@@ -13,5 +13,6 @@ export const icons = pgTable("icons", {
   category: text("category").notNull(),
   filename: text("filename").notNull(),
   storagePath: text("storage_path").notNull(),
+  data: text("data"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(sql`now()`),
 });

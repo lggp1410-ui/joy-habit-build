@@ -46,6 +46,19 @@ interface DayProgress {
   hasMoments: boolean;
 }
 
+function toDateStr(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function wasCompletedOn(task: any, dateStr: string, isToday: boolean): boolean {
+  // If completionDates exists, use it as the source of truth
+  if (task.completionDates && task.completionDates.length > 0) {
+    return task.completionDates.includes(dateStr);
+  }
+  // Legacy: for today only, fall back to the completed flag
+  return isToday && !!task.completed;
+}
+
 function calcDayProgress(
   day: Date,
   dayLabel: string,
@@ -53,6 +66,9 @@ function calcDayProgress(
   routines: any[]
 ): DayProgress {
   const isToday = day.toDateString() === today.toDateString();
+  const dateStr = toDateStr(day);
+
+  // Only show routines scheduled for this weekday
   const dayRoutines = routines.filter(r =>
     !r.archived && (r.type || 'routine') === 'routine' &&
     (r.days.length === 0 || r.days.includes(dayLabel))
@@ -62,11 +78,13 @@ function calcDayProgress(
   );
 
   const routineTotal = dayRoutines.reduce((a: number, r: any) => a + r.tasks.length, 0);
-  const routineDone = dayRoutines.reduce((a: number, r: any) => a + r.tasks.filter((t: any) => t.completed).length, 0);
+  const routineDone = dayRoutines.reduce((a: number, r: any) =>
+    a + r.tasks.filter((t: any) => wasCompletedOn(t, dateStr, isToday)).length, 0);
   const routinePct = routineTotal > 0 ? routineDone / routineTotal : 0;
 
   const momentTotal = dayMoments.reduce((a: number, r: any) => a + r.tasks.length, 0);
-  const momentDone = dayMoments.reduce((a: number, r: any) => a + r.tasks.filter((t: any) => t.completed).length, 0);
+  const momentDone = dayMoments.reduce((a: number, r: any) =>
+    a + r.tasks.filter((t: any) => wasCompletedOn(t, dateStr, isToday)).length, 0);
   const momentPct = momentTotal > 0 ? momentDone / momentTotal : 0;
 
   return { dayLabel, isToday, routinePct, momentPct, hasRoutines: routineTotal > 0, hasMoments: momentTotal > 0 };
