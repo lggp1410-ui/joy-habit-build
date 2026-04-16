@@ -19,19 +19,26 @@ interface NotificationOptions {
 /**
  * Show a notification via Service Worker (works in background) with fallback to new Notification().
  */
-export async function showNotification(title: string, body: string, options?: Partial<NotificationOptions>): Promise<void> {
+export async function showNotification(
+  title: string,
+  body: string,
+  options?: Partial<NotificationOptions>
+): Promise<void> {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
 
-  const notifOptions: globalThis.NotificationOptions & { vibrate?: number[]; requireInteraction?: boolean; data?: unknown } = {
+  const notifOptions: globalThis.NotificationOptions & {
+    vibrate?: number[];
+    requireInteraction?: boolean;
+    data?: unknown;
+  } = {
     body,
-    icon: options?.icon || '/favicon.ico',
-    badge: '/favicon.ico',
+    icon: options?.icon || '/images/logo.png',
+    badge: '/images/logo.png',
     tag: options?.tag,
     vibrate: options?.vibrate || [200, 100, 200],
     requireInteraction: options?.requireInteraction ?? false,
   };
 
-  // Try Service Worker registration first (works in background/mobile)
   try {
     const reg = await getTimerSW();
     if (reg) {
@@ -45,7 +52,6 @@ export async function showNotification(title: string, body: string, options?: Pa
     console.warn('[Notifications] SW showNotification failed, using fallback:', e);
   }
 
-  // Fallback: direct Notification (only works when tab is active)
   try {
     new Notification(title, notifOptions as globalThis.NotificationOptions);
   } catch {
@@ -57,37 +63,13 @@ export async function showNotification(title: string, body: string, options?: Pa
 
 let timerSWRegistration: ServiceWorkerRegistration | null = null;
 
-function waitForSWActive(reg: ServiceWorkerRegistration): Promise<ServiceWorkerRegistration> {
-  if (reg.active) return Promise.resolve(reg);
-
-  return new Promise((resolve) => {
-    const sw = reg.installing || reg.waiting;
-    if (!sw) {
-      // No worker at all, resolve anyway
-      resolve(reg);
-      return;
-    }
-    const onStateChange = () => {
-      if (sw.state === 'activated' || sw.state === 'activating') {
-        sw.removeEventListener('statechange', onStateChange);
-        resolve(reg);
-      }
-    };
-    sw.addEventListener('statechange', onStateChange);
-    // Safety timeout
-    setTimeout(() => {
-      sw.removeEventListener('statechange', onStateChange);
-      resolve(reg);
-    }, 5000);
-  });
-}
-
 export async function getTimerSW(): Promise<ServiceWorkerRegistration | null> {
   if (timerSWRegistration?.active) return timerSWRegistration;
   if (!('serviceWorker' in navigator)) return null;
   try {
     const registrations = await navigator.serviceWorker.getRegistrations();
-    const found = registrations.find(r => r.active?.scriptURL.includes('timer-sw.js')) || null;
+    const found =
+      registrations.find((r) => r.active?.scriptURL.includes('timer-sw.js')) || null;
     if (found) timerSWRegistration = found;
     return found;
   } catch {
@@ -109,6 +91,54 @@ export async function postToTimerSW(message: Record<string, unknown>): Promise<b
   console.warn('[Notifications] No active Service Worker to post message to');
   return false;
 }
+
+// ── Persistent timer notification (non-dismissable) ────────────────────────
+
+/**
+ * Start a persistent non-dismissable notification for the active timer task.
+ * Call this when the timer screen opens.
+ */
+export async function startPersistentTimerNotification(
+  taskName: string,
+  timeDisplay: string,
+  isResting: boolean
+): Promise<void> {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  await postToTimerSW({
+    type: 'START_PERSISTENT_TIMER',
+    taskName,
+    timeDisplay,
+    isResting,
+  });
+}
+
+/**
+ * Update the persistent timer notification with the current countdown.
+ * Call this every second while the timer is running.
+ */
+export async function updatePersistentTimerNotification(
+  taskName: string,
+  timeDisplay: string,
+  isResting: boolean
+): Promise<void> {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  await postToTimerSW({
+    type: 'UPDATE_PERSISTENT_TIMER',
+    taskName,
+    timeDisplay,
+    isResting,
+  });
+}
+
+/**
+ * Stop and close the persistent timer notification.
+ * Call this when the timer is closed/completed.
+ */
+export async function stopPersistentTimerNotification(): Promise<void> {
+  await postToTimerSW({ type: 'STOP_PERSISTENT_TIMER' });
+}
+
+// ── Scheduled (one-shot) notifications ────────────────────────────────────
 
 export async function scheduleTimerNotification(
   id: string,
@@ -147,7 +177,7 @@ export async function cancelAllTimerNotifications(): Promise<void> {
   await postToTimerSW({ type: 'CANCEL_ALL' });
 }
 
-// --- Routine reminder scheduling ---
+// ── Routine reminder scheduling ────────────────────────────────────────────
 
 const scheduledTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
@@ -155,6 +185,7 @@ export function scheduleRoutineReminder(routine: Routine): void {
   if (!routine.reminder || !routine.time) return;
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
 
+  // Clear any existing timer for this routine
   const existing = scheduledTimers.get(routine.id);
   if (existing) clearTimeout(existing);
 
@@ -163,25 +194,22 @@ export function scheduleRoutineReminder(routine: Routine): void {
   const target = new Date(now);
   target.setHours(hours, minutes, 0, 0);
 
-  if (target.getTime() <= now.getTime()) return;
+  // Skip if already past (within a 2-minute grace window)
+  if (target.getTime() <= now.getTime() - 2 * 60 * 1000) return;
 
-  const delay = target.getTime() - now.getTime();
+  // If it's within the next 2 minutes and already past, fire immediately
+  const delay = Math.max(0, target.getTime() - now.getTime());
+
   const isMoment = routine.type === 'moment';
   const title = isMoment ? `⭐ ${routine.name}` : `💐 ${routine.name}`;
   const body = isMoment
     ? `Está na hora de começar ${routine.name}! Toque para iniciar o momento! ⭐`
     : `Está na hora de começar ${routine.name}! Toque para iniciar a rotina! 💐`;
 
-  // Schedule via Service Worker for background delivery
-  scheduleTimerNotification(
-    `reminder-${routine.id}`,
-    delay,
-    title,
-    body,
-    `reminder-${routine.id}`
-  );
+  // Schedule via Service Worker for background delivery (primary)
+  scheduleTimerNotification(`reminder-${routine.id}`, delay, title, body, `reminder-${routine.id}`);
 
-  // Also keep a local fallback
+  // Fallback: local setTimeout (only fires when page is open)
   const timer = setTimeout(() => {
     showNotification(title, body, {
       tag: `reminder-${routine.id}`,
@@ -195,8 +223,10 @@ export function scheduleRoutineReminder(routine: Routine): void {
 }
 
 export function clearAllReminders(): void {
-  scheduledTimers.forEach(timer => clearTimeout(timer));
+  scheduledTimers.forEach((timer) => clearTimeout(timer));
   scheduledTimers.clear();
+  // Cancel reminder notifications in SW without touching the active timer notification
+  postToTimerSW({ type: 'CANCEL_REMINDERS' });
 }
 
 export function showTimerNotification(taskName: string, isRunning: boolean): void {

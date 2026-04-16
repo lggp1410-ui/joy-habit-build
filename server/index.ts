@@ -232,7 +232,10 @@ app.get("/api/icons", async (_req, res) => {
       if (seenPerCategory[icon.category].has(icon.filename)) continue;
       seenPerCategory[icon.category].add(icon.filename);
 
-      const url = supabaseUrl
+      // storagePath may be a full URL (Airtable attachment) or a relative path
+      const url = icon.storagePath.startsWith("http")
+        ? icon.storagePath
+        : supabaseUrl
         ? `${supabaseUrl}/storage/v1/object/public/icons/${icon.storagePath}`
         : `/icons/${icon.storagePath}`;
 
