@@ -28,7 +28,7 @@ function getMonthDays(today: Date) {
   const month = today.getMonth();
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0);
-  const startPad = firstDay.getDay(); // 0=Sun
+  const startPad = firstDay.getDay();
   const days: (Date | null)[] = [];
   for (let i = 0; i < startPad; i++) days.push(null);
   for (let d = 1; d <= lastDay.getDate(); d++) {
@@ -46,16 +46,15 @@ interface DayProgress {
   hasMoments: boolean;
 }
 
-function toDateStr(d: Date): string {
+export function toDateStr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 function wasCompletedOn(task: any, dateStr: string, isToday: boolean): boolean {
-  // If completionDates exists, use it as the source of truth
   if (task.completionDates && task.completionDates.length > 0) {
     return task.completionDates.includes(dateStr);
   }
-  // Legacy: for today only, fall back to the completed flag
+  // Legacy fallback: for today only
   return isToday && !!task.completed;
 }
 
@@ -68,7 +67,6 @@ function calcDayProgress(
   const isToday = day.toDateString() === today.toDateString();
   const dateStr = toDateStr(day);
 
-  // Only show routines scheduled for this weekday
   const dayRoutines = routines.filter(r =>
     !r.archived && (r.type || 'routine') === 'routine' &&
     (r.days.length === 0 || r.days.includes(dayLabel))
@@ -124,19 +122,38 @@ export function AnalysisScreen() {
   const [viewMode, setViewMode] = useState<'weekly' | 'monthly'>('weekly');
   const [monthOffset, setMonthOffset] = useState(0);
 
-  const totalTasks = routines.reduce((acc, r) => acc + r.tasks.length, 0);
-  const completedTasks = routines.reduce((acc, r) => acc + r.tasks.filter(t => t.completed).length, 0);
-  const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-  const completedRoutines = routines.filter(r => r.tasks.length > 0 && r.tasks.every(t => t.completed)).length;
+  const today = new Date();
+  const todayStr = toDateStr(today);
+
+  // Stats based on real completion dates for today
+  const totalTasks = routines.filter(r => !r.archived).reduce((acc, r) => acc + r.tasks.length, 0);
+
+  const completedTodayCount = useMemo(() =>
+    routines.filter(r => !r.archived).reduce((acc, r) =>
+      acc + r.tasks.filter(t => {
+        if (t.completionDates && t.completionDates.length > 0) return t.completionDates.includes(todayStr);
+        return !!t.completed;
+      }).length, 0),
+    [routines, todayStr]
+  );
+
+  const completionRate = totalTasks > 0 ? Math.round((completedTodayCount / totalTasks) * 100) : 0;
+
+  const completedRoutinesToday = useMemo(() =>
+    routines.filter(r => !r.archived && r.tasks.length > 0 && r.tasks.every(t => {
+      if (t.completionDates && t.completionDates.length > 0) return t.completionDates.includes(todayStr);
+      return !!t.completed;
+    })).length,
+    [routines, todayStr]
+  );
 
   const stats = [
-    { label: t('analysis.totalRoutines'), value: routines.length, icon: Target, color: 'bg-primary' },
-    { label: t('analysis.tasksDone'), value: `${completedTasks}/${totalTasks}`, icon: CheckCircle2, color: 'bg-secondary' },
+    { label: t('analysis.totalRoutines'), value: routines.filter(r => !r.archived).length, icon: Target, color: 'bg-primary' },
+    { label: t('analysis.tasksDone'), value: `${completedTodayCount}/${totalTasks}`, icon: CheckCircle2, color: 'bg-secondary' },
     { label: t('analysis.completion'), value: `${completionRate}%`, icon: BarChart3, color: 'bg-primary' },
-    { label: t('analysis.perfectDays'), value: completedRoutines, icon: Flame, color: 'bg-secondary' },
+    { label: t('analysis.perfectDays'), value: completedRoutinesToday, icon: Flame, color: 'bg-secondary' },
   ];
 
-  const today = new Date();
   const weekDays = useMemo(() => getWeekDays(today), [today.toDateString()]);
   const viewMonth = useMemo(() => {
     const d = new Date(today.getFullYear(), today.getMonth() + monthOffset, 1);
@@ -148,7 +165,7 @@ export function AnalysisScreen() {
 
   const weekProgress = useMemo(() => {
     return weekDays.map((day, i) => calcDayProgress(day, dayLabels[i], today, routines));
-  }, [routines, weekDays, dayLabels, today]);
+  }, [routines, weekDays, dayLabels, today.toDateString()]);
 
   const monthProgress = useMemo(() => {
     return monthDays.map(day => {
@@ -156,7 +173,7 @@ export function AnalysisScreen() {
       const dayOfWeek = day.getDay();
       return calcDayProgress(day, dayLabels[dayOfWeek], today, routines);
     });
-  }, [routines, monthDays, dayLabels, today]);
+  }, [routines, monthDays, dayLabels, today.toDateString()]);
 
   const monthName = viewMonth.toLocaleDateString(lang === 'pt-BR' ? 'pt-BR' : lang, { month: 'long', year: 'numeric' });
 
@@ -273,12 +290,15 @@ export function AnalysisScreen() {
           </div>
         )}
 
-        {routines.length > 0 && (
+        {routines.filter(r => !r.archived).length > 0 && (
           <div className="mt-6">
             <h3 className="text-display text-base mb-3">{t('analysis.routineBreakdown')}</h3>
             <div className="space-y-2">
               {routines.filter(r => !r.archived).map((routine) => {
-                const done = routine.tasks.filter(t => t.completed).length;
+                const done = routine.tasks.filter(t => {
+                  if (t.completionDates && t.completionDates.length > 0) return t.completionDates.includes(todayStr);
+                  return !!t.completed;
+                }).length;
                 const pct = routine.tasks.length > 0 ? (done / routine.tasks.length) * 100 : 0;
                 const isMoment = routine.type === 'moment';
                 return (

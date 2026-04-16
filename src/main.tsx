@@ -6,28 +6,29 @@ import { setTimerSWRegistration } from "./utils/notifications";
 
 createRoot(document.getElementById("root")!).render(<App />);
 
-// Listen for SW messages to play sounds in the main thread
+// Listen for SW messages (play sounds, notification clicks)
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.addEventListener("message", (event) => {
-    if (event.data?.type === "PLAY_COMPLETION_SOUND" && event.data.soundUrl) {
+    const { type, soundUrl, url } = event.data || {};
+
+    if (type === "PLAY_COMPLETION_SOUND" && soundUrl) {
       try {
-        const audio = new Audio(event.data.soundUrl);
+        const audio = new Audio(soundUrl);
         audio.play().catch(() => {});
       } catch {}
+    }
+
+    if (type === "NOTIFICATION_CLICKED") {
+      // Focus the window and navigate to the root
+      window.focus();
+      if (url && url !== window.location.pathname) {
+        window.location.href = url;
+      }
     }
   });
 }
 
-// Register timer service worker (skip in iframes/previews)
-const isInIframe = (() => {
-  try {
-    return window.self !== window.top;
-  } catch (e) {
-    return true;
-  }
-})();
-
-if (!isInIframe && "serviceWorker" in navigator) {
+if ("serviceWorker" in navigator) {
   navigator.serviceWorker
     .register("/timer-sw.js")
     .then(async (reg) => {
@@ -45,6 +46,11 @@ if (!isInIframe && "serviceWorker" in navigator) {
           });
         }
       }
+
+      try {
+        const readyReg = await navigator.serviceWorker.ready;
+        setTimerSWRegistration(readyReg);
+      } catch {}
     })
     .catch((err) => console.warn("Timer SW registration failed:", err));
 }

@@ -6,6 +6,7 @@ import { useRoutineStore } from '@/stores/routineStore';
 import { CountdownTimer } from './CountdownTimer';
 import { TaskEditorModal } from './TaskEditorModal';
 import { Task, formatDuration, isImageIcon } from '@/types/routine';
+import { requestNotificationPermission } from '@/utils/notifications';
 
 export function RoutineDetail() {
   const { routines, activeRoutineId, setActiveRoutine, toggleTask, setEditingRoutineId, setShowCreateModal, duplicateTask, deleteTask, addTaskToRoutine, updateTaskInRoutine, reorderTasks } = useRoutineStore();
@@ -22,6 +23,15 @@ export function RoutineDetail() {
   const routine = routines.find(r => r.id === activeRoutineId);
 
   if (!routine) return null;
+
+  const handleStartTimer = () => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      requestNotificationPermission().finally(() => setShowTimer(true));
+      return;
+    }
+
+    setShowTimer(true);
+  };
 
   const completedCount = routine.tasks.filter(t => t.completed).length;
 
@@ -241,8 +251,9 @@ export function RoutineDetail() {
           <Plus className="w-6 h-6 text-foreground" />
         </button>
         <button
-          onClick={() => setShowTimer(true)}
-          className="flex-1 h-14 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-semibold text-lg shadow-lg active:scale-[0.97] transition-transform"
+          onClick={handleStartTimer}
+          disabled={routine.tasks.length === 0}
+          className="flex-1 h-14 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-semibold text-lg shadow-lg active:scale-[0.97] transition-transform disabled:opacity-40 disabled:pointer-events-none"
         >
           {t('detail.start', 'Iniciar')}
         </button>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { getCachedIcons, setCachedIcons, CachedIcon } from '@/lib/localDb';
 
 export interface AirtableIcon {
   url: string;
@@ -10,47 +11,12 @@ export interface AirtableCategory {
   icons: AirtableIcon[];
 }
 
-const CACHE_KEY = 'planlizz_airtable_icons';
-const CACHE_TTL = 1 * 60 * 60 * 1000; // 1 hour
-
-interface CachedData {
-  categories: AirtableCategory[];
-  timestamp: number;
-}
-
-function getCached(): AirtableCategory[] | null {
-  try {
-    const raw = localStorage.getItem(CACHE_KEY);
-    if (!raw) return null;
-    const cached: CachedData = JSON.parse(raw);
-    if (Date.now() - cached.timestamp > CACHE_TTL) {
-      localStorage.removeItem(CACHE_KEY);
-      return null;
-    }
-    return cached.categories;
-  } catch {
-    return null;
-  }
-}
-
-function setCache(categories: AirtableCategory[]) {
-  try {
-    const data: CachedData = { categories, timestamp: Date.now() };
-    localStorage.setItem(CACHE_KEY, JSON.stringify(data));
-  } catch {
-    // localStorage full or unavailable
-  }
-}
-
-function getCachedStale(): AirtableCategory[] | null {
-  try {
-    const raw = localStorage.getItem(CACHE_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw).categories || null;
-  } catch {
-    return null;
-  }
-}
+const CATEGORY_ORDER = [
+  'Manha', 'Tarde/Noite', 'Saude', 'Aprender', 'Trabalho',
+  'Profissoes', 'Familia', 'Bebe/Crianca', 'Beleza', 'Culinaria',
+  'Tarefas-da-Casa', 'Veiculos', 'Exercicios', 'Lazer',
+  'Lanches/Bebidas', 'Pets', 'Eletronicos', 'Comercio', 'Musica', 'Religiao',
+];
 
 function filterValidIcons(categories: AirtableCategory[]): AirtableCategory[] {
   return categories.map(cat => {
@@ -69,6 +35,37 @@ function filterValidIcons(categories: AirtableCategory[]): AirtableCategory[] {
   }).filter(cat => cat.icons.length > 0);
 }
 
+function sortCategories(cats: AirtableCategory[]): AirtableCategory[] {
+  const map = Object.fromEntries(cats.map(c => [c.name, c]));
+  const ordered = CATEGORY_ORDER.filter(n => map[n]).map(n => map[n]);
+  const rest = cats.filter(c => !CATEGORY_ORDER.includes(c.name));
+  return [...ordered, ...rest];
+}
+
+function idbToCategories(cached: CachedIcon[]): AirtableCategory[] {
+  const map: Record<string, AirtableCategory> = {};
+  for (const icon of cached) {
+    if (!map[icon.category]) map[icon.category] = { name: icon.category, icons: [] };
+    map[icon.category].icons.push({ url: icon.url, filename: icon.filename });
+  }
+  return sortCategories(Object.values(map));
+}
+
+function apiToIdb(categories: AirtableCategory[]): CachedIcon[] {
+  const result: CachedIcon[] = [];
+  for (const cat of categories) {
+    for (const icon of cat.icons) {
+      result.push({
+        id: `${cat.name}/${icon.filename}`,
+        category: cat.name,
+        filename: icon.filename,
+        url: icon.url,
+      });
+    }
+  }
+  return result;
+}
+
 export function useAirtableIcons() {
   const [categories, setCategories] = useState<AirtableCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -78,60 +75,80 @@ export function useAirtableIcons() {
     let cancelled = false;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
-    async function fetchIcons(isRetry = false) {
-      if (!isRetry) {
-        const cached = getCached();
-        if (cached && cached.length > 0) {
-          setCategories(filterValidIcons(cached));
-          setIsLoading(false);
-          refreshFromServer(cancelled);
-          return;
+    async function loadFromIDB() {
+      try {
+        const cached = await getCachedIcons();
+        if (!cancelled && cached.length > 0) {
+          const cats = filterValidIcons(idbToCategories(cached));
+          if (cats.length > 0) {
+            setCategories(cats);
+            setIsLoading(false);
+            // Refresh from server in background
+            refreshFromServer(true);
+            return true;
+          }
         }
+      } catch {
+        // ignore IDB errors
       }
-      await refreshFromServer(cancelled);
+      return false;
     }
 
-    async function refreshFromServer(isCancelled: boolean) {
+    async function refreshFromServer(background = false) {
       try {
         const res = await fetch('/api/icons');
-        if (isCancelled) return;
+        if (cancelled) return;
 
         if (!res.ok) {
-          const msg = `Icons API error: ${res.status}`;
-          console.error(msg);
-          setError(msg);
-          const stale = getCachedStale();
-          if (stale) setCategories(filterValidIcons(stale));
-          setIsLoading(false);
+          if (!background) {
+            setError(`Icons API error: ${res.status}`);
+            setIsLoading(false);
+          }
           return;
         }
 
         const data = await res.json();
         if (data?.categories && data.categories.length > 0) {
-          const filtered = filterValidIcons(data.categories);
-          setCategories(filtered);
-          setCache(filtered);
+          const sorted = sortCategories(data.categories);
+          const filtered = filterValidIcons(sorted);
+
+          if (!cancelled) {
+            setCategories(filtered);
+            setError(null);
+            setIsLoading(false);
+          }
+
+          // Persist to IndexedDB for offline use
+          const toCache = apiToIdb(filtered);
+          await setCachedIcons(toCache);
+        } else if (!background) {
+          // Empty DB — server may still be syncing; retry after 8s
           setIsLoading(false);
-        } else {
-          // DB is empty — server may still be syncing; retry after 8 seconds
-          setIsLoading(false);
-          if (!isCancelled) {
+          if (!cancelled) {
             retryTimer = setTimeout(() => {
-              if (!isCancelled) fetchIcons(true);
+              if (!cancelled) refreshFromServer(false);
             }, 8000);
           }
         }
       } catch (err: any) {
-        if (isCancelled) return;
-        console.error('Fetch icons error:', err);
-        setError(err.message);
-        const stale = getCachedStale();
-        if (stale) setCategories(filterValidIcons(stale));
-        setIsLoading(false);
+        if (cancelled) return;
+        if (!background) {
+          setError(err.message);
+          setIsLoading(false);
+        }
       }
     }
 
-    fetchIcons();
+    async function init() {
+      const hadCache = await loadFromIDB();
+      if (!hadCache) {
+        // No cache — fetch from network immediately
+        await refreshFromServer(false);
+      }
+    }
+
+    init();
+
     return () => {
       cancelled = true;
       if (retryTimer) clearTimeout(retryTimer);

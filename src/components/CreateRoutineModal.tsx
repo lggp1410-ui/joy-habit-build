@@ -8,6 +8,7 @@ import { WheelPicker } from './WheelPicker';
 import { Task, Routine, formatDuration, isImageIcon } from '@/types/routine';
 import { TutorialOverlay } from './TutorialOverlay';
 import defaultTaskIcon from '@/assets/default-task-icon.png';
+import { requestNotificationPermission } from '@/utils/notifications';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
 const MINUTES_60 = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
@@ -144,7 +145,14 @@ export function CreateRoutineModal() {
     setOpenMenuTaskId(null);
   };
 
-  
+  const handleToggleReminder = async () => {
+    if (!reminder) {
+      const granted = await requestNotificationPermission();
+      if (!granted) return;
+    }
+
+    setReminder(prev => !prev);
+  };
 
   const handleSave = () => {
     if (!name.trim() || tasks.length === 0) return;
@@ -264,7 +272,7 @@ export function CreateRoutineModal() {
                 <div className="mb-4 flex items-center justify-between">
                   <label className="text-sm font-medium text-muted-foreground">{t('create.reminder')}</label>
                   <button
-                    onClick={() => setReminder(!reminder)}
+                    onClick={handleToggleReminder}
                     className={`w-12 h-7 rounded-full transition-colors relative ${reminder ? 'bg-primary' : 'bg-muted'}`}
                   >
                     <motion.div animate={{ x: reminder ? 20 : 2 }} className="w-5 h-5 bg-white rounded-full absolute top-1 shadow-sm" />

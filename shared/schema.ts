@@ -5,6 +5,7 @@ export const userPreferences = pgTable("user_preferences", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id", { length: 255 }).notNull().unique(),
   routines: jsonb("routines").default([]),
+  recentIcons: jsonb("recent_icons").default([]),
   updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`now()`),
 });
 

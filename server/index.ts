@@ -1,7 +1,9 @@
 import express from "express";
 import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
 import cors from "cors";
 import sharp from "sharp";
+import pg from "pg";
 import { db } from "./db.js";
 import { userPreferences, icons } from "../shared/schema.js";
 import { eq, and } from "drizzle-orm";
@@ -9,14 +11,34 @@ import { eq, and } from "drizzle-orm";
 const app = express();
 const PORT = process.env.SERVER_PORT || 3001;
 
+const PgSession = connectPgSimple(session);
+const pgPool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+
+// Ensure session table exists
+pgPool.query(`
+  CREATE TABLE IF NOT EXISTS "session" (
+    "sid" varchar NOT NULL COLLATE "default",
+    "sess" json NOT NULL,
+    "expire" timestamp(6) NOT NULL,
+    CONSTRAINT "session_pkey" PRIMARY KEY ("sid") NOT DEFERRABLE INITIALLY IMMEDIATE
+  ) WITH (OIDS=FALSE);
+  CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire");
+`).catch((e: Error) => console.warn("[Sessions] Table setup warning:", e.message));
+
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(
   session({
+    store: new PgSession({ pool: pgPool, tableName: "session" }),
     secret: process.env.SESSION_SECRET || "planlizz-dev-secret",
     resave: false,
     saveUninitialized: false,
-    cookie: { secure: false, httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 },
+    cookie: {
+      secure: process.env.NODE_ENV === "production",
+      httpOnly: true,
+      sameSite: "lax",
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+    },
   })
 );
 
@@ -26,6 +48,21 @@ declare module "express-session" {
     userName?: string;
     userAvatar?: string;
   }
+}
+
+function getAppUrl(req?: express.Request): string {
+  if (process.env.REPLIT_DOMAINS) {
+    return `https://${process.env.REPLIT_DOMAINS.split(",")[0]}`;
+  }
+  if (process.env.REPLIT_DEV_DOMAIN) {
+    return `https://${process.env.REPLIT_DEV_DOMAIN}`;
+  }
+  if (req) {
+    const proto = (req.headers["x-forwarded-proto"] as string) || req.protocol;
+    const host = (req.headers["x-forwarded-host"] as string) || req.get("host") || "localhost:5000";
+    return `${proto}://${host}`;
+  }
+  return "http://localhost:5000";
 }
 
 // Auth middleware — checks session
@@ -73,87 +110,110 @@ app.post("/api/auth/logout", (req, res) => {
   });
 });
 
-// Replit OIDC callback — Replit Auth redirects here after login
-app.get("/api/auth/callback", async (req, res) => {
-  try {
-    const { code } = req.query as { code: string };
-    if (!code) {
-      res.status(400).json({ error: "Missing code" });
-      return;
-    }
-
-    const clientId = process.env.REPLIT_CLIENT_ID;
-    const clientSecret = process.env.REPLIT_CLIENT_SECRET;
-    const redirectUri = `${process.env.REPLIT_APP_URL || "http://localhost:5000"}/api/auth/callback`;
-
-    if (!clientId || !clientSecret) {
-      // Dev mode — no OIDC configured, treat as generic login
-      res.redirect("/");
-      return;
-    }
-
-    const tokenRes = await fetch("https://replit.com/api/v0/oauth/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        grant_type: "authorization_code",
-        code,
-        redirect_uri: redirectUri,
-        client_id: clientId,
-        client_secret: clientSecret,
-      }),
-    });
-
-    if (!tokenRes.ok) {
-      console.error("Token exchange failed:", await tokenRes.text());
-      res.redirect("/?auth_error=1");
-      return;
-    }
-
-    const { access_token } = (await tokenRes.json()) as { access_token: string };
-
-    const userRes = await fetch("https://replit.com/api/v0/account", {
-      headers: { Authorization: `Bearer ${access_token}` },
-    });
-    const profile = (await userRes.json()) as {
-      id: string;
-      username: string;
-      profileImageUrl?: string;
-    };
-
-    req.session.userId = `replit_${profile.id}`;
-    req.session.userName = profile.username;
-    req.session.userAvatar = profile.profileImageUrl;
-
-    res.redirect("/");
-  } catch (err) {
-    console.error("Auth callback error:", err);
-    res.redirect("/?auth_error=1");
-  }
-});
-
-// GET /api/auth/login — redirect to Replit OAuth
+// GET /api/auth/login — redirect to Google OAuth
 app.get("/api/auth/login", (req, res) => {
-  const clientId = process.env.REPLIT_CLIENT_ID;
-  const appUrl =
-    process.env.REPLIT_APP_URL || "http://localhost:5000";
-  const redirectUri = `${appUrl}/api/auth/callback`;
+  const clientId = process.env.GOOGLE_CLIENT_ID;
 
   if (!clientId) {
-    // No OIDC configured — just create a demo session
+    // No OAuth configured — create a demo session
     req.session.userId = "demo_user";
     req.session.userName = "Demo User";
     res.redirect("/");
     return;
   }
 
+  const redirectUri = `${getAppUrl(req)}/api/auth/callback`;
+
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: redirectUri,
     response_type: "code",
-    scope: "identity",
+    scope: "openid email profile",
+    access_type: "offline",
+    prompt: "select_account",
   });
-  res.redirect(`https://replit.com/api/v0/oauth/authorize?${params}`);
+
+  res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
+});
+
+// GET /api/auth/callback — Google OAuth callback
+app.get("/api/auth/callback", async (req, res) => {
+  try {
+    const { code, error } = req.query as { code?: string; error?: string };
+
+    if (error || !code) {
+      console.error("[OAuth] Error from Google:", error || "missing code");
+      res.redirect(`/?auth_error=${encodeURIComponent(error || "missing_code")}`);
+      return;
+    }
+
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+
+    if (!clientId || !clientSecret) {
+      // Dev fallback — no credentials, demo session
+      req.session.userId = "demo_user";
+      req.session.userName = "Demo User";
+      res.redirect("/");
+      return;
+    }
+
+    const redirectUri = `${getAppUrl(req)}/api/auth/callback`;
+
+    // Exchange authorization code for tokens
+    const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        code,
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: redirectUri,
+        grant_type: "authorization_code",
+      }),
+    });
+
+    if (!tokenRes.ok) {
+      const errBody = await tokenRes.text();
+      console.error("[OAuth] Google token exchange failed:", errBody);
+      let reason = "token_exchange_failed";
+      try { reason = JSON.parse(errBody).error || reason; } catch {}
+      res.redirect(`/?auth_error=${encodeURIComponent(reason)}`);
+      return;
+    }
+
+    const { access_token } = (await tokenRes.json()) as { access_token: string };
+
+    // Get user profile from Google
+    const userRes = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+      headers: { Authorization: `Bearer ${access_token}` },
+    });
+
+    const profile = (await userRes.json()) as {
+      id: string;
+      name: string;
+      picture?: string;
+      email?: string;
+    };
+
+    req.session.userId = `google_${profile.id}`;
+    req.session.userName = profile.name;
+    req.session.userAvatar = profile.picture;
+
+    // Explicitly save session to DB before redirecting
+    req.session.save((saveErr) => {
+      if (saveErr) {
+        console.error("[OAuth] Session save failed:", saveErr);
+        res.redirect("/?auth_error=session_save_failed");
+      } else {
+        console.log("[OAuth] Login success:", req.session.userId);
+        res.redirect("/");
+      }
+    });
+  } catch (err) {
+    console.error("[OAuth] Auth callback error:", err);
+    res.redirect("/?auth_error=server_error");
+  }
 });
 
 // ── User Preferences Routes ────────────────────────────────────────────────
@@ -193,6 +253,52 @@ app.put("/api/preferences", requireAuth, async (req, res) => {
   } catch (err) {
     console.error("Put preferences error:", err);
     res.status(500).json({ error: "Failed to save preferences" });
+  }
+});
+
+// GET /api/preferences/recent-icons — load recent icons for logged-in user
+app.get("/api/preferences/recent-icons", requireAuth, async (req, res) => {
+  try {
+    const userId = req.session.userId!;
+    if (userId.startsWith("guest")) {
+      res.json({ recentIcons: [] });
+      return;
+    }
+    const row = await db
+      .select()
+      .from(userPreferences)
+      .where(eq(userPreferences.userId, userId))
+      .limit(1);
+
+    res.json({ recentIcons: (row[0]?.recentIcons as string[]) ?? [] });
+  } catch (err) {
+    console.error("Get recent icons error:", err);
+    res.status(500).json({ error: "Failed to load recent icons" });
+  }
+});
+
+// PUT /api/preferences/recent-icons — save recent icons for logged-in user
+app.put("/api/preferences/recent-icons", requireAuth, async (req, res) => {
+  try {
+    const userId = req.session.userId!;
+    if (userId.startsWith("guest")) {
+      res.json({ ok: true });
+      return;
+    }
+    const { recentIcons } = req.body;
+
+    await db
+      .insert(userPreferences)
+      .values({ userId, recentIcons, updatedAt: new Date() })
+      .onConflictDoUpdate({
+        target: userPreferences.userId,
+        set: { recentIcons, updatedAt: new Date() },
+      });
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Put recent icons error:", err);
+    res.status(500).json({ error: "Failed to save recent icons" });
   }
 });
 
@@ -352,7 +458,6 @@ app.get("/api/icons", async (_req, res) => {
       if (seenPerCategory[icon.category].has(icon.filename)) continue;
       seenPerCategory[icon.category].add(icon.filename);
 
-      // Use base64 data: URL when available, fall back to remote URL
       const url = icon.data
         ? `data:image/png;base64,${icon.data}`
         : icon.storagePath.startsWith("http")
@@ -417,5 +522,5 @@ async function autoSyncIconsIfEmpty() {
   }
 }
 
-// Run startup check after a short delay to let the server fully initialize
+// Run startup check after a short delay
 setTimeout(() => autoSyncIconsIfEmpty(), 2000);

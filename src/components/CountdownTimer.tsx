@@ -57,7 +57,9 @@ interface CountdownTimerProps {
 export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(
   function CountdownTimer({ routine, onClose, onCompleteTask }, _ref) {
     const { t } = useTranslation();
-    const incompleteTasks = routine.tasks.filter((t) => !t.completed);
+    // Fall back to all tasks if none are incomplete, so Iniciar always works
+    const rawIncomplete = routine.tasks.filter((t) => !t.completed);
+    const incompleteTasks = rawIncomplete.length > 0 ? rawIncomplete : routine.tasks;
     const [currentTaskIndex, setCurrentTaskIndex] = useState(0);
     const currentTask = incompleteTasks[currentTaskIndex];
 
@@ -149,7 +151,10 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(
      */
     const syncPersistentNotification = useCallback(
       async (nextRemaining: number, isStart = false) => {
-        if (!notifPermission) return;
+        const hasPermission =
+          notifPermission ||
+          ('Notification' in window && Notification.permission === 'granted');
+        if (!hasPermission) return;
         if (!isStart && lastNotifSecondRef.current === nextRemaining) return;
         lastNotifSecondRef.current = nextRemaining;
 
@@ -257,8 +262,9 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(
 
       if (currentTask && !isResting) {
         const secs = getTaskSeconds();
+        const now = Date.now();
         totalDurationRef.current = secs;
-        startTimeRef.current = Date.now();
+        startTimeRef.current = now;
         pausedRemainingRef.current = secs;
         lastRenderedSecondRef.current = secs;
         lastNotifSecondRef.current = null;
@@ -272,7 +278,7 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(
 
         persistState({
           taskId: currentTask.id,
-          startTimestamp: Date.now(),
+          startTimestamp: now,
           totalDuration: secs,
           pausedRemaining: secs,
           isResting: false,
@@ -299,6 +305,26 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(
       scheduleTaskCompletionAlert,
       notifPermission,
       formatTimerValue,
+    ]);
+
+    useEffect(() => {
+      if (!isRunning || !timerInitialized || !currentTask) return;
+      const hasPermission =
+        notifPermission ||
+        ('Notification' in window && Notification.permission === 'granted');
+      if (!hasPermission) return;
+
+      const nextRemaining = getCurrentRemainingSeconds();
+      syncTimerDisplay(nextRemaining);
+      syncPersistentNotification(nextRemaining, true);
+    }, [
+      currentTask,
+      getCurrentRemainingSeconds,
+      isRunning,
+      notifPermission,
+      syncPersistentNotification,
+      syncTimerDisplay,
+      timerInitialized,
     ]);
 
     // ── Main tick loop ───────────────────────────────────────────────────
@@ -446,9 +472,10 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(
 
       const restSecs = getRestSeconds();
       if (restSecs > 0 && incompleteTasks.length > 1) {
+        const now = Date.now();
         setIsResting(true);
         totalDurationRef.current = restSecs;
-        startTimeRef.current = Date.now();
+        startTimeRef.current = now;
         pausedRemainingRef.current = restSecs;
         lastRenderedSecondRef.current = restSecs;
         lastNotifSecondRef.current = null;
@@ -458,7 +485,7 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(
         setIsRunning(true);
 
         persistState({
-          startTimestamp: Date.now(),
+          startTimestamp: now,
           totalDuration: restSecs,
           pausedRemaining: restSecs,
           isResting: true,

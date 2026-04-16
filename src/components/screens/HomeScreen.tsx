@@ -6,6 +6,7 @@ import { RoutineCard } from '@/components/RoutineCard';
 import { RoutineDetail } from '@/components/RoutineDetail';
 import { useState, useEffect, useMemo } from 'react';
 import { requestNotificationPermission, scheduleRoutineReminder, clearAllReminders } from '@/utils/notifications';
+import { useDailyReset } from '@/hooks/useDailyReset';
 
 function useCurrentDate() {
   const [date, setDate] = useState(new Date());
@@ -46,6 +47,9 @@ export function HomeScreen() {
   const weekDays = useMemo(() => getWeekDays(currentDate), [currentDate.toDateString()]);
   const lang = i18n.language;
   const dayLabels = WEEKDAY_LABELS_PT[lang] || WEEKDAY_LABELS_PT['en'];
+
+  // Daily reset: resets task completion at midnight and on first app open each day
+  useDailyReset(lang);
 
   const locale = lang === 'pt-BR' ? 'pt-BR' : lang === 'fr' ? 'fr-FR' : lang === 'ja' ? 'ja-JP' : lang === 'ko' ? 'ko-KR' : 'en-US';
   const weekdayName = currentDate.toLocaleDateString(locale, { weekday: 'long' });
@@ -97,23 +101,21 @@ export function HomeScreen() {
     return filtered.filter(r => r.days.length === 0 || r.days.some(d => d === dayLabel));
   }, [routines, selectedDayIndex, todayIndex, dayLabels, showAllRoutines, homeFilter]);
 
-  // Schedule push notifications for today's routines
+  // Schedule push notifications for all reminder routines (next occurrence)
   useEffect(() => {
-    const hasReminders = filteredRoutines.some(r => r.reminder);
-    if (!hasReminders) return;
+    const reminderRoutines = routines.filter(r => !r.archived && r.reminder && r.time);
+    if (reminderRoutines.length === 0) return;
 
     requestNotificationPermission().then(granted => {
       if (!granted) return;
       clearAllReminders();
-      filteredRoutines.forEach(r => {
-        if (r.reminder && r.time) {
-          scheduleRoutineReminder(r);
-        }
+      reminderRoutines.forEach(r => {
+        scheduleRoutineReminder(r, dayLabels);
       });
     });
 
     return () => clearAllReminders();
-  }, [filteredRoutines]);
+  }, [routines, dayLabels.join(',')]);
 
   const handleCreateOption = (type: 'routine' | 'moment') => {
     setCreateType(type);

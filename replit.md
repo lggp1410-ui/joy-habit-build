@@ -10,6 +10,7 @@ PlanLizz is a React + TypeScript daily routine planner app (PWA). Migrated from 
 - **Database**: Replit-provisioned PostgreSQL (see `DATABASE_URL` env var)
 - **Icons**: Icon catalog stored in `icons` table in PostgreSQL. Auto-synced from Airtable on server startup if DB is empty (requires `AIRTABLE_API_KEY` and `AIRTABLE_BASE_ID`). Manual sync available at `POST /api/icons/sync`. Icons are stored as 128px Base64 PNGs in the DB.
 - **Recent Icons**: Stored in `sessionStorage` (clears when browser tab is closed/app is reinstalled). NOT persisted in localStorage.
+- **Notifications**: `/timer-sw.js` handles routine reminders and persistent timer notifications. Timer start requests permission from the user action and waits for the service worker before sending the first persistent notification.
 
 ## Key Files
 - `server/index.ts` — Express server, all API routes

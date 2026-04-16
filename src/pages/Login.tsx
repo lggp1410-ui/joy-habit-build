@@ -1,23 +1,35 @@
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/hooks/useAuth';
-import { toast } from 'sonner';
 
 interface LoginProps {
   onGuest: () => void;
 }
 
+const ERROR_MESSAGES: Record<string, string> = {
+  access_denied: 'Acesso negado. Tente novamente.',
+  redirect_uri_mismatch: 'URI de redirecionamento não autorizado. Verifique as configurações do Google Cloud Console.',
+  token_exchange_failed: 'Falha ao autenticar com o Google. Tente novamente.',
+  session_save_failed: 'Erro ao salvar a sessão. Tente novamente.',
+  server_error: 'Erro interno. Tente novamente.',
+  missing_code: 'Código de autorização ausente. Tente novamente.',
+};
+
 export default function Login({ onGuest }: LoginProps) {
   const { t } = useTranslation();
   const { signInWithGoogle } = useAuth();
+  const [authError, setAuthError] = useState<string | null>(null);
 
-  const handleGoogleSignIn = () => {
-    try {
-      signInWithGoogle();
-    } catch {
-      toast.error(t('settings.signInError', 'Sign in failed. Please try again.'));
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const err = params.get('auth_error');
+    if (err) {
+      setAuthError(err);
+      // Clean the URL without reloading
+      window.history.replaceState({}, '', window.location.pathname);
     }
-  };
+  }, []);
 
   return (
     <div className="max-w-lg mx-auto min-h-screen bg-background flex flex-col items-center justify-center px-6">
@@ -34,9 +46,22 @@ export default function Login({ onGuest }: LoginProps) {
           <p className="text-sm text-muted-foreground">{t('login.subtitle', 'Organize your daily routines')}</p>
         </div>
 
+        {authError && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="w-full px-4 py-3 rounded-card bg-red-50 border border-red-200 text-left"
+          >
+            <p className="text-sm font-medium text-red-700 mb-1">Erro ao entrar com Google</p>
+            <p className="text-xs text-red-600">
+              {ERROR_MESSAGES[authError] ?? `Erro desconhecido: ${authError}`}
+            </p>
+          </motion.div>
+        )}
+
         <div className="space-y-3 w-full">
           <button
-            onClick={handleGoogleSignIn}
+            onClick={signInWithGoogle}
             className="w-full flex items-center justify-center gap-3 px-4 py-3.5 rounded-card glass-card shadow-soft hover:bg-muted/50 transition-colors font-medium text-sm"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">

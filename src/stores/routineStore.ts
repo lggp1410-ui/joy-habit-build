@@ -42,23 +42,6 @@ interface RoutineStore {
   convertToRoutine: (id: string, days: string[]) => void;
 }
 
-const SESSION_RECENT_ICONS_KEY = 'planlizz-recent-icons-session';
-
-function loadSessionRecentIcons(): string[] {
-  try {
-    const raw = sessionStorage.getItem(SESSION_RECENT_ICONS_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveSessionRecentIcons(icons: string[]) {
-  try {
-    sessionStorage.setItem(SESSION_RECENT_ICONS_KEY, JSON.stringify(icons));
-  } catch {}
-}
-
 export const useRoutineStore = create<RoutineStore>()(
   persist(
     (set, get) => ({
@@ -67,7 +50,7 @@ export const useRoutineStore = create<RoutineStore>()(
       activeRoutineId: null,
       showCreateModal: false,
       showSuccessPopup: false,
-      recentIcons: loadSessionRecentIcons(),
+      recentIcons: [],
       editingRoutineId: null,
       showWelcome: false,
       showCreateMenu: false,
@@ -125,16 +108,16 @@ export const useRoutineStore = create<RoutineStore>()(
         });
       },
       resetRoutineTasks: (routineId) => set((s) => ({
-        routines: s.routines.map(r => r.id === routineId 
-          ? { ...r, tasks: r.tasks.map(t => ({ ...t, completed: false })) } 
+        routines: s.routines.map(r => r.id === routineId
+          ? { ...r, tasks: r.tasks.map(t => ({ ...t, completed: false })) }
           : r
         )
       })),
       addRecentIcon: (url) => set((s) => {
+        // Only keep valid icon URLs
         const cleaned = s.recentIcons.filter(i => i && (i.startsWith('http') || i.startsWith('data:')));
         const filtered = cleaned.filter(i => i !== url);
-        const next = [url, ...filtered];
-        saveSessionRecentIcons(next);
+        const next = [url, ...filtered].slice(0, 30);
         return { recentIcons: next };
       }),
       duplicateTask: (routineId, taskId) => set((s) => ({
@@ -196,6 +179,7 @@ export const useRoutineStore = create<RoutineStore>()(
     {
       name: 'planlizz-routines',
       partialize: (state) => {
+        // Exclude recentIcons from localStorage persist — managed by IndexedDB only
         const { recentIcons, ...rest } = state as any;
         return rest;
       },

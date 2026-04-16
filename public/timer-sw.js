@@ -2,14 +2,13 @@
 const scheduledTimers = {};
 
 // Active timer notification state
-let activeTimerInterval = null;
 let activeTimerTag = 'active-timer';
 
 self.addEventListener('message', (event) => {
   const data = event.data || {};
   const { type } = data;
 
-  // ── Scheduled (one-shot) notifications ──────────────────────────────────
+  // ── Scheduled (one-shot) notifications ──────────────────────────────────────
   if (type === 'SCHEDULE_NOTIFICATION') {
     const { id, delay, title, body, vibrate, tag, requireInteraction, playSound, soundUrl } = data;
 
@@ -23,11 +22,14 @@ self.addEventListener('message', (event) => {
         body,
         icon: '/images/logo.png',
         badge: '/images/logo.png',
-        vibrate: vibrate || [200, 100, 200],
+        vibrate: vibrate || [300, 100, 300, 100, 300],
         tag: tag || 'timer-notification',
         requireInteraction: requireInteraction !== false,
         silent: false,
-        data: { url: '/' },
+        renotify: true,
+        data: { url: '/', type: 'task-complete' },
+        // Android: maximize visibility
+        actions: [{ action: 'open', title: '▶ Abrir App' }],
       });
 
       if (playSound && soundUrl) {
@@ -45,34 +47,31 @@ self.addEventListener('message', (event) => {
     scheduledTimers[id] = setTimeout(fireNotification, delay);
   }
 
-  // ── Persistent live timer notification ─────────────────────────────────
+  // ── Persistent live timer notification ─────────────────────────────────────
   if (type === 'START_PERSISTENT_TIMER') {
     const { taskName, timeDisplay, isResting } = data;
-    // Show immediately
     showPersistentTimer(taskName, timeDisplay, isResting, false);
   }
 
   if (type === 'UPDATE_PERSISTENT_TIMER') {
     const { taskName, timeDisplay, isResting } = data;
-    // Update silently every second
     showPersistentTimer(taskName, timeDisplay, isResting, true);
   }
 
   if (type === 'STOP_PERSISTENT_TIMER') {
-    // Close the active-timer notification
     self.registration.getNotifications({ tag: activeTimerTag }).then((notifs) => {
       notifs.forEach((n) => n.close());
     });
   }
 
-  // ── Sound only ─────────────────────────────────────────────────────────
+  // ── Sound only ─────────────────────────────────────────────────────────────
   if (type === 'PLAY_SOUND') {
     if (data.soundUrl) {
       playAudioInSW(data.soundUrl);
     }
   }
 
-  // ── Cancel ─────────────────────────────────────────────────────────────
+  // ── Cancel ─────────────────────────────────────────────────────────────────
   if (type === 'CANCEL_NOTIFICATION') {
     const { id, tag } = data;
     if (id && scheduledTimers[id]) {
@@ -91,7 +90,6 @@ self.addEventListener('message', (event) => {
       clearTimeout(scheduledTimers[key]);
       delete scheduledTimers[key];
     });
-    // Close all notifications EXCEPT the active persistent timer
     self.registration.getNotifications().then((notifications) => {
       notifications.forEach((n) => {
         if (n.tag !== activeTimerTag) n.close();
@@ -99,9 +97,7 @@ self.addEventListener('message', (event) => {
     });
   }
 
-  // Cancel only reminder/scheduled notifications (not the active timer)
   if (type === 'CANCEL_REMINDERS') {
-    // Cancel all scheduled timers that are reminders
     Object.keys(scheduledTimers).forEach((key) => {
       if (key.startsWith('reminder-')) {
         clearTimeout(scheduledTimers[key]);
@@ -119,7 +115,7 @@ self.addEventListener('message', (event) => {
 function showPersistentTimer(taskName, timeDisplay, isResting, silent) {
   const emoji = isResting ? '🌴' : '⏱️';
   const title = `${emoji} ${taskName}`;
-  const body = `${timeDisplay}`;
+  const body = timeDisplay;
 
   self.registration.showNotification(title, {
     body,
@@ -129,14 +125,14 @@ function showPersistentTimer(taskName, timeDisplay, isResting, silent) {
     requireInteraction: true,
     silent: !!silent,
     renotify: !silent,
-    vibrate: silent ? [] : [100],
+    vibrate: silent ? [] : [100, 50, 100],
     data: { url: '/', isPersistentTimer: true },
-    // Android specific — keeps it as ongoing
     ongoing: true,
+    actions: [{ action: 'open', title: '▶ Abrir App' }],
   });
 }
 
-// Play audio using fetch + clients notification
+// Play audio by forwarding to main thread clients
 async function playAudioInSW(soundUrl) {
   try {
     const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
@@ -144,9 +140,7 @@ async function playAudioInSW(soundUrl) {
       clients.forEach(client => {
         client.postMessage({ type: 'PLAY_COMPLETION_SOUND', soundUrl });
       });
-      return;
     }
-    console.log('[timer-sw] No clients available to play sound');
   } catch (e) {
     console.error('[timer-sw] Error playing sound:', e);
   }
@@ -155,25 +149,27 @@ async function playAudioInSW(soundUrl) {
 // When user clicks the notification, focus/open the app
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const url = event.notification.data?.url || '/';
 
-  // Don't re-open if it's the persistent timer (user just dismissed it visually)
-  // but DO focus the app window
+  const notifData = event.notification.data || {};
+  const url = notifData.url || '/';
+
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      // Focus existing window if available
       for (const client of clients) {
         if (client.url.includes(self.location.origin)) {
-          return client.focus();
+          client.focus();
+          // Send message to open the active timer screen
+          if (notifData.isPersistentTimer || event.action === 'open') {
+            client.postMessage({ type: 'NOTIFICATION_CLICKED', url });
+          }
+          return;
         }
       }
+      // No window open — open a new one
       return self.clients.openWindow(url);
     })
   );
-});
-
-// Suppress notification close events for the persistent timer — re-show it
-self.addEventListener('notificationclose', (event) => {
-  // We don't automatically re-show; the timer component drives all updates
 });
 
 self.addEventListener('install', () => self.skipWaiting());
