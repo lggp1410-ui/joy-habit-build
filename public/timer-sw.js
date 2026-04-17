@@ -185,5 +185,31 @@ self.addEventListener('notificationclick', (event) => {
   );
 });
 
+self.addEventListener('push', (event) => {
+  let payload = {};
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch {
+    payload = {};
+  }
+
+  const title = payload.title || 'PlanLizz';
+  const data = payload.data || { url: '/' };
+  const promise = self.registration.showNotification(title, {
+    body: payload.body || '',
+    icon: '/images/logo.png',
+    badge: '/images/logo.png',
+    vibrate: [300, 100, 300, 100, 300],
+    tag: payload.tag || 'planlizz-reminder',
+    requireInteraction: true,
+    renotify: true,
+    silent: false,
+    data,
+    actions: [{ action: 'open', title: '▶ Abrir App' }],
+  });
+
+  event.waitUntil(promise);
+});
+
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()));

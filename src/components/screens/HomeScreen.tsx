@@ -5,7 +5,7 @@ import { useRoutineStore } from '@/stores/routineStore';
 import { RoutineCard } from '@/components/RoutineCard';
 import { RoutineDetail } from '@/components/RoutineDetail';
 import { useState, useEffect, useMemo } from 'react';
-import { requestNotificationPermission, scheduleRoutineReminder, clearAllReminders, checkDueRoutineReminders } from '@/utils/notifications';
+import { requestNotificationPermission, scheduleRoutineReminder, clearAllReminders, checkDueRoutineReminders, enableClosedAppPushNotifications } from '@/utils/notifications';
 import { useDailyReset } from '@/hooks/useDailyReset';
 
 function useCurrentDate() {
@@ -114,6 +114,7 @@ export function HomeScreen() {
       reminderRoutines.forEach(r => {
         scheduleRoutineReminder(r, dayLabels);
       });
+      enableClosedAppPushNotifications();
       checkDueRoutineReminders(reminderRoutines, dayLabels);
       interval = setInterval(() => {
         checkDueRoutineReminders(reminderRoutines, dayLabels);

@@ -10,7 +10,7 @@ PlanLizz is a React + TypeScript daily routine planner app (PWA). Migrated from 
 - **Database**: Replit-provisioned PostgreSQL (see `DATABASE_URL` env var)
 - **Icons**: Icon catalog stored in `icons` table in PostgreSQL. Auto-synced from Airtable on server startup if DB is empty (requires `AIRTABLE_API_KEY` and `AIRTABLE_BASE_ID`). Manual sync available at `POST /api/icons/sync`. Icons are stored as 128px Base64 PNGs in the DB.
 - **Recent Icons**: Stored in IndexedDB only and synced to the server only after the current install has local recent icons. They are intentionally excluded from localStorage so Recentes clears on app reinstall.
-- **Notifications**: `/timer-sw.js` handles routine reminders and persistent timer notifications. Timer notifications include the routine id so tapping them opens the routine and timer.
+- **Notifications**: `/timer-sw.js` handles routine reminders, Web Push delivery, and persistent timer notifications. Logged-in users can receive rotina/momento reminders when the app is closed via stored browser push subscriptions and a server-side scheduler.
 - **Production serving**: `server/index.ts` serves the Vite `dist/` build when present, while development uses Vite on port 5000 with `/api` proxied to Express.
 
 ## Key Files

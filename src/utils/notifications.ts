@@ -242,6 +242,52 @@ export async function cancelAllTimerNotifications(): Promise<void> {
   await postToTimerSW({ type: 'CANCEL_ALL' });
 }
 
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+
+  for (let i = 0; i < rawData.length; i += 1) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+
+  return outputArray;
+}
+
+export async function enableClosedAppPushNotifications(): Promise<boolean> {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
+  if (!('Notification' in window) || Notification.permission !== 'granted') return false;
+
+  try {
+    const keyRes = await fetch('/api/push/vapid-public-key', { credentials: 'include' });
+    if (!keyRes.ok) return false;
+    const { publicKey } = await keyRes.json() as { publicKey?: string };
+    if (!publicKey) return false;
+
+    const registration = await navigator.serviceWorker.ready;
+    let subscription = await registration.pushManager.getSubscription();
+    if (!subscription) {
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey),
+      });
+    }
+
+    const saveRes = await fetch('/api/push/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(subscription),
+    });
+
+    return saveRes.ok;
+  } catch (err) {
+    console.warn('Closed-app push subscription failed:', err);
+    return false;
+  }
+}
+
 // ── Routine reminder scheduling ────────────────────────────────────────────
 
 const scheduledTimers = new Map<string, ReturnType<typeof setTimeout>>();

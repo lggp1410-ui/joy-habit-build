@@ -8,6 +8,7 @@ import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import webPush from "web-push";
 import { db } from "./db.js";
 import { userPreferences, icons } from "../shared/schema.js";
 import { eq, and } from "drizzle-orm";
@@ -21,6 +22,113 @@ const clientDist = path.resolve(__dirname, "../dist");
 const PgSession = connectPgSimple(session);
 const pgPool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 const sessionSecret = process.env.SESSION_SECRET || crypto.randomBytes(32).toString("hex");
+
+type PushRoutine = {
+  id: string;
+  name: string;
+  days?: string[];
+  time?: string;
+  reminder?: boolean;
+  type?: "routine" | "moment";
+  archived?: boolean;
+};
+
+type StoredPushSubscription = {
+  endpoint: string;
+  keys?: {
+    p256dh?: string;
+    auth?: string;
+  };
+};
+
+const DAY_LABEL_SETS = [
+  ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"],
+  ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+  ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"],
+  ["日", "月", "火", "水", "木", "金", "土"],
+  ["일", "월", "화", "수", "목", "금", "토"],
+];
+
+let vapidPublicKey = "";
+
+function getDateKey(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function routineRunsToday(routine: PushRoutine, now: Date): boolean {
+  const days = routine.days || [];
+  if (days.length === 0) return true;
+  const dayIndex = now.getDay();
+  return DAY_LABEL_SETS.some((labels) => days.includes(labels[dayIndex]));
+}
+
+function getPushReminderText(routine: PushRoutine): { title: string; body: string } {
+  const isMoment = routine.type === "moment";
+  return {
+    title: isMoment ? `⭐ ${routine.name}` : `💐 ${routine.name}`,
+    body: isMoment
+      ? `Está na hora de começar ${routine.name}! Toque para iniciar o momento! ⭐`
+      : `Está na hora de começar ${routine.name}! Toque para iniciar a rotina! 💐`,
+  };
+}
+
+async function ensurePushInfrastructure(): Promise<void> {
+  await pgPool.query(`
+    CREATE TABLE IF NOT EXISTS app_settings (
+      key text PRIMARY KEY,
+      value jsonb NOT NULL,
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
+
+    CREATE TABLE IF NOT EXISTS push_subscriptions (
+      user_id varchar(255) NOT NULL,
+      endpoint text PRIMARY KEY,
+      subscription jsonb NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
+
+    CREATE TABLE IF NOT EXISTS push_reminder_deliveries (
+      user_id varchar(255) NOT NULL,
+      routine_id text NOT NULL,
+      routine_time varchar(5) NOT NULL,
+      date_key varchar(10) NOT NULL,
+      delivered_at timestamptz NOT NULL DEFAULT now(),
+      PRIMARY KEY (user_id, routine_id, routine_time, date_key)
+    );
+  `);
+
+  let publicKey = process.env.VAPID_PUBLIC_KEY;
+  let privateKey = process.env.VAPID_PRIVATE_KEY;
+
+  if (!publicKey || !privateKey) {
+    const existing = await pgPool.query(
+      "SELECT value FROM app_settings WHERE key = 'web_push_vapid_keys' LIMIT 1"
+    );
+    const value = existing.rows[0]?.value as { publicKey?: string; privateKey?: string } | undefined;
+    publicKey = value?.publicKey;
+    privateKey = value?.privateKey;
+  }
+
+  if (!publicKey || !privateKey) {
+    const generated = webPush.generateVAPIDKeys();
+    publicKey = generated.publicKey;
+    privateKey = generated.privateKey;
+    await pgPool.query(
+      `INSERT INTO app_settings (key, value, updated_at)
+       VALUES ('web_push_vapid_keys', $1::jsonb, now())
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
+      [JSON.stringify({ publicKey, privateKey })]
+    );
+  }
+
+  vapidPublicKey = publicKey;
+  webPush.setVapidDetails("mailto:notifications@planlizz.app", publicKey, privateKey);
+}
+
+const pushInfrastructureReady = ensurePushInfrastructure().catch((err) => {
+  console.error("[Push] Infrastructure setup failed:", err);
+});
 
 // Ensure session table exists
 pgPool.query(`
@@ -314,6 +422,52 @@ app.put("/api/preferences", requireAuth, async (req, res) => {
   }
 });
 
+// ── Web Push Routes ─────────────────────────────────────────────────────────
+
+app.get("/api/push/vapid-public-key", requireAuth, async (req, res) => {
+  try {
+    await pushInfrastructureReady;
+    if (!vapidPublicKey) {
+      res.status(503).json({ error: "push_not_ready" });
+      return;
+    }
+    res.json({ publicKey: vapidPublicKey });
+  } catch (err) {
+    console.error("[Push] Public key error:", err);
+    res.status(500).json({ error: "Failed to load push key" });
+  }
+});
+
+app.post("/api/push/subscribe", requireAuth, async (req, res) => {
+  try {
+    const userId = req.session.userId!;
+    if (userId.startsWith("guest")) {
+      res.status(400).json({ error: "login_required_for_closed_app_notifications" });
+      return;
+    }
+
+    const subscription = req.body as StoredPushSubscription;
+    if (!subscription?.endpoint || !subscription.keys?.p256dh || !subscription.keys?.auth) {
+      res.status(400).json({ error: "invalid_subscription" });
+      return;
+    }
+
+    await pushInfrastructureReady;
+    await pgPool.query(
+      `INSERT INTO push_subscriptions (user_id, endpoint, subscription, updated_at)
+       VALUES ($1, $2, $3::jsonb, now())
+       ON CONFLICT (endpoint)
+       DO UPDATE SET user_id = EXCLUDED.user_id, subscription = EXCLUDED.subscription, updated_at = now()`,
+      [userId, subscription.endpoint, JSON.stringify(subscription)]
+    );
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[Push] Subscribe error:", err);
+    res.status(500).json({ error: "Failed to save push subscription" });
+  }
+});
+
 // GET /api/preferences/recent-icons — load recent icons for logged-in user
 app.get("/api/preferences/recent-icons", requireAuth, async (req, res) => {
   try {
@@ -577,6 +731,83 @@ if (fs.existsSync(path.join(clientDist, "index.html"))) {
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
+async function sendPushToUser(userId: string, routine: PushRoutine): Promise<void> {
+  const { title, body } = getPushReminderText(routine);
+  const payload = JSON.stringify({
+    title,
+    body,
+    tag: `reminder-${routine.id}`,
+    data: {
+      url: `/?routineId=${encodeURIComponent(routine.id)}&timer=1`,
+      routineId: routine.id,
+      openTimer: true,
+      type: routine.type === "moment" ? "moment-reminder" : "routine-reminder",
+    },
+  });
+
+  const subscriptions = await pgPool.query(
+    "SELECT endpoint, subscription FROM push_subscriptions WHERE user_id = $1",
+    [userId]
+  );
+
+  await Promise.all(
+    subscriptions.rows.map(async (row) => {
+      try {
+        await webPush.sendNotification(row.subscription as StoredPushSubscription, payload);
+      } catch (err: any) {
+        if (err?.statusCode === 404 || err?.statusCode === 410) {
+          await pgPool.query("DELETE FROM push_subscriptions WHERE endpoint = $1", [row.endpoint]);
+        } else {
+          console.error("[Push] Delivery failed:", err?.message || err);
+        }
+      }
+    })
+  );
+}
+
+async function checkDuePushReminders(): Promise<void> {
+  try {
+    await pushInfrastructureReady;
+    const now = new Date();
+    const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    const dateKey = getDateKey(now);
+
+    const users = await pgPool.query(
+      `SELECT DISTINCT up.user_id, up.routines
+       FROM user_preferences up
+       INNER JOIN push_subscriptions ps ON ps.user_id = up.user_id
+       WHERE up.routines IS NOT NULL`
+    );
+
+    for (const row of users.rows) {
+      const routines = Array.isArray(row.routines) ? (row.routines as PushRoutine[]) : [];
+      for (const routine of routines) {
+        if (!routine?.id || !routine.name || !routine.reminder || !routine.time || routine.archived) continue;
+        if (routine.time !== currentTime) continue;
+        if (!routineRunsToday(routine, now)) continue;
+
+        const inserted = await pgPool.query(
+          `INSERT INTO push_reminder_deliveries (user_id, routine_id, routine_time, date_key)
+           VALUES ($1, $2, $3, $4)
+           ON CONFLICT DO NOTHING
+           RETURNING routine_id`,
+          [row.user_id, routine.id, routine.time, dateKey]
+        );
+
+        if (inserted.rowCount > 0) {
+          await sendPushToUser(row.user_id, routine);
+        }
+      }
+    }
+  } catch (err) {
+    console.error("[Push] Reminder check failed:", err);
+  }
+}
+
+setInterval(() => {
+  checkDuePushReminders();
+}, 1000);
 
 // Auto-sync icons in the background if the DB is empty
 async function autoSyncIconsIfEmpty() {
