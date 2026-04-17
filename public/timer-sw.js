@@ -52,12 +52,14 @@ self.addEventListener('message', (event) => {
   // ── Persistent live timer notification ─────────────────────────────────────
   if (type === 'START_PERSISTENT_TIMER') {
     const { taskName, timeDisplay, isResting, routineId } = data;
-    showPersistentTimer(taskName, timeDisplay, isResting, false, routineId);
+    const promise = showPersistentTimer(taskName, timeDisplay, isResting, false, routineId);
+    if (event.waitUntil) event.waitUntil(promise);
   }
 
   if (type === 'UPDATE_PERSISTENT_TIMER') {
     const { taskName, timeDisplay, isResting, routineId } = data;
-    showPersistentTimer(taskName, timeDisplay, isResting, true, routineId);
+    const promise = showPersistentTimer(taskName, timeDisplay, isResting, true, routineId);
+    if (event.waitUntil) event.waitUntil(promise);
   }
 
   if (type === 'STOP_PERSISTENT_TIMER') {
@@ -114,13 +116,15 @@ self.addEventListener('message', (event) => {
   }
 });
 
-function showPersistentTimer(taskName, timeDisplay, isResting, silent, routineId) {
+async function showPersistentTimer(taskName, timeDisplay, isResting, silent, routineId) {
   const emoji = isResting ? '🌴' : '⏱️';
   const title = `${emoji} ${taskName}`;
   const body = timeDisplay;
   const url = routineId ? `/?routineId=${encodeURIComponent(routineId)}&timer=1` : '/';
+  const existing = await self.registration.getNotifications({ tag: activeTimerTag });
+  existing.forEach((notification) => notification.close());
 
-  self.registration.showNotification(title, {
+  await self.registration.showNotification(title, {
     body,
     icon: '/images/logo.png',
     badge: '/images/logo.png',

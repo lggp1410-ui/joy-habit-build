@@ -140,6 +140,8 @@ async function showPersistentTimerStatus(
   try {
     const reg = await getTimerSW();
     if (reg) {
+      const existing = await reg.getNotifications({ tag: ACTIVE_TIMER_TAG });
+      existing.forEach((notification) => notification.close());
       await reg.showNotification(title, options);
       return;
     }
@@ -159,6 +161,14 @@ export async function startPersistentTimerNotification(
   routineId?: string
 ): Promise<void> {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  const sent = await postToTimerSW({
+    type: 'START_PERSISTENT_TIMER',
+    taskName,
+    timeDisplay,
+    isResting,
+    routineId,
+  });
+  if (sent) return;
   await showPersistentTimerStatus(taskName, timeDisplay, isResting, false, routineId);
 }
 
@@ -169,6 +179,14 @@ export async function updatePersistentTimerNotification(
   routineId?: string
 ): Promise<void> {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  const sent = await postToTimerSW({
+    type: 'UPDATE_PERSISTENT_TIMER',
+    taskName,
+    timeDisplay,
+    isResting,
+    routineId,
+  });
+  if (sent) return;
   await showPersistentTimerStatus(taskName, timeDisplay, isResting, true, routineId);
 }
 

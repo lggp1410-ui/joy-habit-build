@@ -30,8 +30,9 @@ if ("serviceWorker" in navigator) {
 
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker
-    .register("/timer-sw.js")
+    .register("/timer-sw.js", { updateViaCache: "none" })
     .then(async (reg) => {
+      reg.update().catch(() => {});
       if (reg.active) {
         setTimerSWRegistration(reg);
         console.log("Timer SW registered (already active)");
