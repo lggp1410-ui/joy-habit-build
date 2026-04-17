@@ -6,12 +6,11 @@ PlanLizz is a React + TypeScript daily routine planner app (PWA). Migrated from 
 ## Architecture
 - **Frontend**: React 18, Vite 8, TypeScript, Tailwind CSS, Shadcn/ui, Zustand, TanStack Query
 - **Backend**: Express.js server (TypeScript via tsx), Drizzle ORM, PostgreSQL
-- **Auth**: Session-based auth via Express sessions. Login uses Google Identity Services popup + `/api/auth/google-login` when `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are configured, avoiding redirect URI mismatch. `/api/auth/login` remains as a redirect fallback and creates a saved demo session when Google credentials are incomplete, preventing blocked login access. Guest mode is supported without login.
+- **Auth**: Session-based auth via Express sessions. Login redirects to `/api/auth/login` (Replit OIDC or demo mode). Guest mode is supported without login.
 - **Database**: Replit-provisioned PostgreSQL (see `DATABASE_URL` env var)
-- **Icons**: Icon catalog stored in `icons` table in PostgreSQL. Auto-synced from Airtable on server startup if DB is empty (requires `AIRTABLE_API_KEY` and `AIRTABLE_BASE_ID`). Manual sync available at `POST /api/icons/sync`. Icons are stored as 128px Base64 PNGs in the DB.
-- **Recent Icons**: Stored in IndexedDB only and synced to the server only after the current install has local recent icons. They are intentionally excluded from localStorage so Recentes clears on app reinstall.
-- **Notifications**: `/timer-sw.js` handles routine reminders, Web Push delivery, and persistent timer notifications. Logged-in users can receive rotina/momento reminders when the app is closed via stored browser push subscriptions and a server-side scheduler.
-- **Production serving**: `server/index.ts` serves the Vite `dist/` build when present, while development uses Vite on port 5000 with `/api` proxied to Express.
+- **Icons**: Icon catalog stored in `icons` table in PostgreSQL. Auto-synced from Airtable on server startup if DB is empty (requires `AIRTABLE_API_KEY`; `AIRTABLE_BASE_ID` is optional when the token can list accessible bases). Manual sync available at `POST /api/icons/sync`. Icons are stored and served only as 128px Base64 PNGs in the DB, avoiding external Airtable URLs in the app.
+- **Recent Icons**: Stored only in this installation's IndexedDB. They are intentionally not synced to the server so they disappear after uninstall/reinstall.
+- **Notifications/Timers**: `public/timer-sw.js` registers even inside preview if allowed, persists routine reminders and the active timer in IndexedDB, shows an audible/vibrating timer notification at start/pause/completion, and attempts native timestamp-trigger scheduling when supported by the browser. Exact delivery while the app is fully closed still depends on OS/browser PWA notification support and battery restrictions.
 
 ## Key Files
 - `server/index.ts` — Express server, all API routes
@@ -39,11 +38,12 @@ npm run db:push   # Push schema changes to the database
 - `DATABASE_URL` — PostgreSQL connection string (auto-provisioned by Replit)
 - `SESSION_SECRET` — Secret for Express sessions (set via Replit Secrets)
 - `AIRTABLE_API_KEY` — For syncing icons from Airtable (optional)
-- `AIRTABLE_BASE_ID` — For syncing icons from Airtable (optional)
-- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — For Google OAuth login (optional; app works in guest/demo mode without these)
+- `AIRTABLE_BASE_ID` — Optional base override for syncing icons from Airtable
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — For Google OAuth login (app works in guest/demo mode without these)
 
-## Migration Notes (from Lovable/Replit Agent)
-- Removed: Supabase client code, Supabase Edge Functions, and Supabase migrations
+## Migration Notes (from Lovable)
+- Removed: `vite-plugin-pwa`, `@lovable.dev/cloud-auth-js`, `lovable-tagger`, `@supabase/supabase-js`
+- `src/integrations/supabase/client.ts` is stubbed (returns null)
 - `src/integrations/lovable/index.ts` is stubbed (redirects to /api/auth/login)
 - Supabase Edge Functions replaced by Express routes in `server/index.ts`
 - Supabase auth replaced by session-based auth with Replit OIDC support
