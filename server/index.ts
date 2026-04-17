@@ -19,6 +19,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const clientDist = path.resolve(__dirname, "../dist");
 
+app.set("trust proxy", 1);
+
 const PgSession = connectPgSimple(session);
 const pgPool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 const sessionSecret = process.env.SESSION_SECRET || crypto.randomBytes(32).toString("hex");
@@ -181,6 +183,20 @@ function getAppUrl(req?: express.Request): string {
   return "http://localhost:5000";
 }
 
+function createDemoSession(req: express.Request, res: express.Response) {
+  req.session.userId = "demo_user";
+  req.session.userName = "Demo User";
+  req.session.userAvatar = undefined;
+  req.session.save((err) => {
+    if (err) {
+      console.error("[Auth] Demo session save failed:", err);
+      res.redirect("/?auth_error=session_save_failed");
+      return;
+    }
+    res.redirect("/");
+  });
+}
+
 // Auth middleware — checks session
 function requireAuth(
   req: express.Request,
@@ -325,12 +341,10 @@ app.post("/api/auth/google-login", async (req, res) => {
 // GET /api/auth/login — redirect to Google OAuth
 app.get("/api/auth/login", (req, res) => {
   const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
-  if (!clientId) {
-    // No OAuth configured — create a demo session
-    req.session.userId = "demo_user";
-    req.session.userName = "Demo User";
-    res.redirect("/");
+  if (!clientId || !clientSecret) {
+    createDemoSession(req, res);
     return;
   }
 
