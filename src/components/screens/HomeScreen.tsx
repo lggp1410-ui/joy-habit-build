@@ -5,7 +5,7 @@ import { useRoutineStore } from '@/stores/routineStore';
 import { RoutineCard } from '@/components/RoutineCard';
 import { RoutineDetail } from '@/components/RoutineDetail';
 import { useState, useEffect, useMemo } from 'react';
-import { requestNotificationPermission, scheduleRoutineReminder, clearAllReminders } from '@/utils/notifications';
+import { requestNotificationPermission, scheduleRoutineReminder, clearAllReminders, checkDueRoutineReminders } from '@/utils/notifications';
 import { useDailyReset } from '@/hooks/useDailyReset';
 
 function useCurrentDate() {
@@ -106,15 +106,39 @@ export function HomeScreen() {
     const reminderRoutines = routines.filter(r => !r.archived && r.reminder && r.time);
     if (reminderRoutines.length === 0) return;
 
+    let interval: ReturnType<typeof setInterval> | null = null;
+
     requestNotificationPermission().then(granted => {
       if (!granted) return;
       clearAllReminders();
       reminderRoutines.forEach(r => {
         scheduleRoutineReminder(r, dayLabels);
       });
+      checkDueRoutineReminders(reminderRoutines, dayLabels);
+      interval = setInterval(() => {
+        checkDueRoutineReminders(reminderRoutines, dayLabels);
+      }, 1000);
     });
 
-    return () => clearAllReminders();
+    const handleWake = () => {
+      checkDueRoutineReminders(reminderRoutines, dayLabels);
+      clearAllReminders();
+      reminderRoutines.forEach(r => {
+        scheduleRoutineReminder(r, dayLabels);
+      });
+    };
+
+    document.addEventListener('visibilitychange', handleWake);
+    window.addEventListener('focus', handleWake);
+    window.addEventListener('pageshow', handleWake);
+
+    return () => {
+      if (interval) clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleWake);
+      window.removeEventListener('focus', handleWake);
+      window.removeEventListener('pageshow', handleWake);
+      clearAllReminders();
+    };
   }, [routines, dayLabels.join(',')]);
 
   const handleCreateOption = (type: 'routine' | 'moment') => {

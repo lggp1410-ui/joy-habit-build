@@ -10,7 +10,7 @@ self.addEventListener('message', (event) => {
 
   // ── Scheduled (one-shot) notifications ──────────────────────────────────────
   if (type === 'SCHEDULE_NOTIFICATION') {
-    const { id, delay, title, body, vibrate, tag, requireInteraction, playSound, soundUrl } = data;
+    const { id, delay, title, body, vibrate, tag, requireInteraction, playSound, soundUrl, targetTimestamp } = data;
     const notifData = data.data || { url: '/', type: 'task-complete' };
 
     if (scheduledTimers[id]) {
@@ -41,12 +41,14 @@ self.addEventListener('message', (event) => {
       delete scheduledTimers[id];
     };
 
-    if (delay <= 0) {
+    const nextDelay = targetTimestamp ? Math.max(0, targetTimestamp - Date.now()) : delay;
+
+    if (nextDelay <= 0) {
       fireNotification();
       return;
     }
 
-    scheduledTimers[id] = setTimeout(fireNotification, delay);
+    scheduledTimers[id] = setTimeout(fireNotification, nextDelay);
   }
 
   // ── Persistent live timer notification ─────────────────────────────────────
