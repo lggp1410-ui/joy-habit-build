@@ -68,13 +68,13 @@ export default function Login({ onGuest }: LoginProps) {
     setAuthError(null);
     setIsGoogleLoading(true);
 
-    try {
-      const configRes = await fetch('/api/auth/google-config', { credentials: 'include' });
-      const { clientId } = await configRes.json() as { clientId?: string | null };
-      if (!clientId) {
-        signInWithGoogle();
-        return;
-      }
+    await supabase.auth.signInWithOAuth({
+  provider: 'google',
+  options: {
+    redirectTo: window.location.origin,
+  },
+});
+    
 
       await loadGoogleIdentityScript();
 
