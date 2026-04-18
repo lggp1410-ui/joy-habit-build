@@ -68,7 +68,7 @@ export default function Login({ onGuest }: LoginProps) {
     setAuthError(null);
     setIsGoogleLoading(true);
 
-    await supabase.auth.signInWithOAuth({
+    import { supabase } from '@/integrations/supabase/client'; await supabase.auth.signInWithOAuth({
   provider: 'google',
   options: {
     redirectTo: window.location.origin,
@@ -78,29 +78,26 @@ export default function Login({ onGuest }: LoginProps) {
 
       await loadGoogleIdentityScript();
 
-      const code = await new Promise<string>((resolve, reject) => {
-        const client = window.google.accounts.oauth2.initCodeClient({
-          client_id: clientId,
-          scope: 'openid email profile',
-          ux_mode: 'popup',
-          callback: (response: { code?: string; error?: string }) => {
-            if (response.error) {
-              reject(new Error(response.error));
-              return;
-            }
-            if (!response.code) {
-              reject(new Error('missing_code'));
-              return;
-            }
-            resolve(response.code);
-          },
-          error_callback: (error: { type?: string }) => {
-            reject(new Error(error.type || 'popup_failed_to_open'));
-          },
+      const handleGoogleLogin = async () => {
+    setAuthError(null);
+    setIsGoogleLoading(true);
+
+    try {
+        const { error } = await supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+                redirectTo: window.location.origin,
+            },
         });
 
-        client.requestCode();
-      });
+        if (error) {
+            throw error;
+        }
+    } catch (error: any) {
+        setAuthError(error.message);
+        setIsGoogleLoading(false);
+    }
+};
 
           await lovable.auth.signInWithOAuth('google');
   
