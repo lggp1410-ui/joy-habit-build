@@ -102,17 +102,8 @@ export default function Login({ onGuest }: LoginProps) {
         client.requestCode();
       });
 
-      const loginRes = await fetch('/api/auth/google-login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ code }),
-      });
-
-      if (!loginRes.ok) {
-        const data = await loginRes.json().catch(() => ({}));
-        throw new Error(data.error || 'server_error');
-      }
+          await lovable.auth.signInWithOAuth('google');
+  
 
       window.location.href = '/';
     } catch (error) {
