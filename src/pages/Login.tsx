@@ -1,5 +1,5 @@
-import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function Login() {
   const [authError, setAuthError] = useState<string | null>(null);
