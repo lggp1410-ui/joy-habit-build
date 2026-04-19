@@ -1,8 +1,9 @@
+import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from "@/integrations/supabase/client";
+
 
 interface LoginProps {
   onGuest: () => void;
