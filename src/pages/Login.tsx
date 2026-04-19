@@ -66,12 +66,11 @@ export default function Login({ onGuest }: LoginProps) {
     }
   }, []);
 
-  const handleGoogleLogin = async () => const handleGoogleLogin = async () => {
+  const handleGoogleLogin = async () => {
   setAuthError(null);
   setIsGoogleLoading(true);
 
   try {
-    // O código novo e simples:
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -89,6 +88,7 @@ export default function Login({ onGuest }: LoginProps) {
     setIsGoogleLoading(false);
   }
 };
+
   
 
           await lovable.auth.signInWithOAuth('google');
