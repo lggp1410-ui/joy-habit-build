@@ -66,7 +66,7 @@ export default function Login({ onGuest }: LoginProps) {
     }
   }, []);
 
-  const handleGoogleLogin = async () => {
+const handleGoogleLogin = async () => {
   setAuthError(null);
   setIsGoogleLoading(true);
 
@@ -88,10 +88,8 @@ export default function Login({ onGuest }: LoginProps) {
     setIsGoogleLoading(false);
   }
 };
-
   
-
-          await lovable.auth.signInWithOAuth('google');
+   lovable.auth.signInWithOAuth('google');
   
 
       window.location.href = '/';
