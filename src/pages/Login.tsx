@@ -64,40 +64,30 @@ export default function Login({ onGuest }: LoginProps) {
     }
   }, []);
 
-  const handleGoogleLogin = async () => {
-    setAuthError(null);
-    setIsGoogleLoading(true);
+  const handleGoogleLogin = async () => const handleGoogleLogin = async () => {
+  setAuthError(null);
+  setIsGoogleLoading(true);
 
-    import { supabase } from '@/integrations/supabase/client'; await supabase.auth.signInWithOAuth({
-  provider: 'google',
-  options: {
-    redirectTo: window.location.origin,
-  },
-});
-    
+  try {
+    // O código novo e simples:
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin,
+      },
+    });
 
-      await loadGoogleIdentityScript();
-
-      const handleGoogleLogin = async () => {
-    setAuthError(null);
-    setIsGoogleLoading(true);
-
-    try {
-        const { error } = await supabase.auth.signInWithOAuth({
-            provider: 'google',
-            options: {
-                redirectTo: window.location.origin,
-            },
-        });
-
-        if (error) {
-            throw error;
-        }
-    } catch (error: any) {
-        setAuthError(error.message);
-        setIsGoogleLoading(false);
+    if (error) {
+      throw error;
     }
+  } catch (error: any) {
+    console.error("Erro no login:", error);
+    setAuthError(error.message);
+  } finally {
+    setIsGoogleLoading(false);
+  }
 };
+  
 
           await lovable.auth.signInWithOAuth('google');
   
