@@ -41,20 +41,19 @@ if ("serviceWorker" in navigator) {
     .then(async (reg) => {
 
       if (reg.waiting) {
-        reg.waiting.postMessage({ type: "SKIP_WAITING" });
+        reg.waiting.postMessage({ type: "SKIP_WAITING" }); 
       }
       reg.addEventListener("updatefound", () => {
         const next = reg.installing;
-        next?.addEventListener("statechange", () => {
-          if (next.state === "installed" && navigator.serviceWorker.controller) {
+        next?.addEventListener("statechange", () => 
+ if (next.state === "installed" && navigator.serviceWorker.controller) 
             next.postMessage({ type: "SKIP_WAITING" });
           }
-        });
-      });
-
+        })
+     };
       reg.update().catch(() => {});
 
-      if (reg.active) {
+     (reg.active) {
         setTimerSWRegistration(reg);
         console.log("Timer SW registered (already active)");
       } else {
@@ -73,5 +72,5 @@ if ("serviceWorker" in navigator) {
         const readyReg = await navigator.serviceWorker.ready;
         setTimerSWRegistration(readyReg);
       } catch {}
-   }
+   })//
     .catch((err) => console.warn("Timer SW registration failed:", err));
