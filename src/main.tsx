@@ -37,27 +37,50 @@ if ("serviceWorker" in navigator) {
     
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker
+    
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker
     .register("/timer-sw.js", { updateViaCache: "none" })
     .then(async (reg) => {
-
+      // 1. Se já tiver algo esperando, avisa
       if (reg.waiting) {
-        reg.waiting.postMessage({ type: "SKIP_WAITING" }); 
+        reg.waiting.postMessage({ type: "SKIP_WAITING" });
       }
+
+      // 2. Listener para quando uma nova versão é encontrada
       reg.addEventListener("updatefound", () => {
         const next = reg.installing;
-        next?.addEventListener("statechange", () => 
- if (next.state === "installed" && navigator.serviceWorker.controller) 
+        if (!next) return;
+        
+        next.addEventListener("statechange", () => {
+          if (next.state === "installed" && navigator.serviceWorker.controller) {
             next.postMessage({ type: "SKIP_WAITING" });
           }
-        })
-     };
+        });
+      });
+
+      // 3. Atualiza e checa o estado atual
       reg.update().catch(() => {});
 
-     (reg.active) {
+      if (reg.active) {
         setTimerSWRegistration(reg);
-        console.log("Timer SW registered (already active)");
+        console.log("Timer SW registrado (já ativo)");
       } else {
+        // Se ainda estiver instalando, espera o evento de ativação
         const sw = reg.installing || reg.waiting;
+        if (sw) {
+          sw.addEventListener("statechange", () => {
+            if (sw.state === "activated") {
+              setTimerSWRegistration(reg);
+              console.log("Timer SW registrado (agora ativo)");
+            }
+          });
+        }
+      }
+    })
+    .catch((err) => console.warn("Erro no Service Worker:", err));
+}
+  reg.waiting;
         if (sw) {
           sw.addEventListener("statechange", () => {
             if (sw.state === "activated") {
