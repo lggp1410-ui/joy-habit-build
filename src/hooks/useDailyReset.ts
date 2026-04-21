@@ -67,12 +67,18 @@ export function useDailyReset(lang: string) {
   useEffect(() => {
     const interval = setInterval(() => {
       const now = new Date();
+
+      const todayKey = getDateKey(now);
+      const lastReset = localStorage.getItem(LAST_RESET_KEY);
+      if (lastReset !== todayKey) {
+        resetDayRoutines(now, langRef.current);
       if (now.getHours() === 0 && now.getMinutes() === 0) {
         const todayKey = getDateKey(now);
         const lastReset = localStorage.getItem(LAST_RESET_KEY);
         if (lastReset !== todayKey) {
           resetDayRoutines(now, langRef.current);
         }
+
       }
     }, 60 * 1000);
 

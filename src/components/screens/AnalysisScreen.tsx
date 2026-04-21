@@ -125,26 +125,58 @@ export function AnalysisScreen() {
   const today = new Date();
   const todayStr = toDateStr(today);
 
+  const lang = i18n.language;
+  const dayLabels = WEEKDAY_LABELS[lang] || WEEKDAY_LABELS['en'];
+  const todayDayLabel = dayLabels[today.getDay()];
+
+  const todayRoutines = useMemo(() =>
+    routines.filter(r =>
+      !r.archived &&
+      (r.type === 'moment' || r.days.length === 0 || r.days.includes(todayDayLabel))
+    ),
+    [routines, todayDayLabel]
+  );
+
+  // Stats based on real completion dates for today
+  const totalTasks = todayRoutines.reduce((acc, r) => acc + r.tasks.length, 0);
+
+  const completedTodayCount = useMemo(() =>
+    todayRoutines.reduce((acc, r) =>
+
+
   // Stats based on real completion dates for today
   const totalTasks = routines.filter(r => !r.archived).reduce((acc, r) => acc + r.tasks.length, 0);
 
   const completedTodayCount = useMemo(() =>
     routines.filter(r => !r.archived).reduce((acc, r) =>
+
       acc + r.tasks.filter(t => {
         if (t.completionDates && t.completionDates.length > 0) return t.completionDates.includes(todayStr);
         return !!t.completed;
       }).length, 0),
+
+    [todayRoutines, todayStr]
+
     [routines, todayStr]
+
   );
 
   const completionRate = totalTasks > 0 ? Math.round((completedTodayCount / totalTasks) * 100) : 0;
 
   const completedRoutinesToday = useMemo(() =>
+
+    todayRoutines.filter(r => r.tasks.length > 0 && r.tasks.every(t => {
+      if (t.completionDates && t.completionDates.length > 0) return t.completionDates.includes(todayStr);
+      return !!t.completed;
+    })).length,
+    [todayRoutines, todayStr]
+
     routines.filter(r => !r.archived && r.tasks.length > 0 && r.tasks.every(t => {
       if (t.completionDates && t.completionDates.length > 0) return t.completionDates.includes(todayStr);
       return !!t.completed;
     })).length,
     [routines, todayStr]
+
   );
 
   const stats = [
@@ -160,9 +192,6 @@ export function AnalysisScreen() {
     return d;
   }, [today.toDateString(), monthOffset]);
   const monthDays = useMemo(() => getMonthDays(viewMonth), [viewMonth.toISOString()]);
-  const lang = i18n.language;
-  const dayLabels = WEEKDAY_LABELS[lang] || WEEKDAY_LABELS['en'];
-
   const weekProgress = useMemo(() => {
     return weekDays.map((day, i) => calcDayProgress(day, dayLabels[i], today, routines));
   }, [routines, weekDays, dayLabels, today.toDateString()]);

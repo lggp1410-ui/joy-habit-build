@@ -15,6 +15,24 @@ export function useRecentIconsSync(userId: string | undefined) {
     initializedRef.current = true;
 
     async function load() {
+
+      const local = await getLocalRecentIcons();
+      if (local.length > 0) {
+        setRecentIcons(local);
+      }
+    }
+
+    load();
+  }, [userId, setRecentIcons]);
+
+  // Save only to this installation. It is intentionally not synced to the server
+  // so recent icons disappear after uninstall/reinstall.
+  useEffect(() => {
+    if (!initializedRef.current) return;
+
+    setLocalRecentIcons(recentIcons);
+
+
       // Always load from IndexedDB first (offline-first, instant)
       const local = await getLocalRecentIcons();
 
@@ -71,6 +89,7 @@ export function useRecentIconsSync(userId: string | undefined) {
         }
       }, 1000);
     }
+
 
     return () => {
       if (saveDebounceRef.current) clearTimeout(saveDebounceRef.current);

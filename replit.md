@@ -6,7 +6,7 @@ PlanLizz is a React + TypeScript daily routine planner app (PWA). Migrated from 
 ## Architecture
 - **Frontend**: React 18, Vite 8, TypeScript, Tailwind CSS, Shadcn/ui, Zustand, TanStack Query
 - **Backend**: Express.js server (TypeScript via tsx), Drizzle ORM, PostgreSQL
-- **Auth**: Session-based auth via Express sessions. Login redirects to `/api/auth/login` (Replit OIDC or demo mode). Guest mode is supported without login.
+- **Auth**: Session-based auth via Express sessions. Google OAuth redirects through `/api/auth/login` and `/api/auth/callback`; guest mode is supported without login. In embedded preview/iframe contexts, the Google login opens in a new tab because Google blocks OAuth flows inside iframes.
 - **Database**: Replit-provisioned PostgreSQL (see `DATABASE_URL` env var)
 - **Icons**: Icon catalog stored in `icons` table in PostgreSQL. Auto-synced from Airtable on server startup if DB is empty (requires `AIRTABLE_API_KEY`; `AIRTABLE_BASE_ID` is optional when the token can list accessible bases). Manual sync available at `POST /api/icons/sync`. Icons are stored and served only as 128px Base64 PNGs in the DB, avoiding external Airtable URLs in the app.
 - **Recent Icons**: Stored only in this installation's IndexedDB. They are intentionally not synced to the server so they disappear after uninstall/reinstall.
@@ -46,4 +46,4 @@ npm run db:push   # Push schema changes to the database
 - `src/integrations/supabase/client.ts` is stubbed (returns null)
 - `src/integrations/lovable/index.ts` is stubbed (redirects to /api/auth/login)
 - Supabase Edge Functions replaced by Express routes in `server/index.ts`
-- Supabase auth replaced by session-based auth with Replit OIDC support
+- Supabase auth replaced by session-based auth with Google OAuth support

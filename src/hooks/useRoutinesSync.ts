@@ -73,10 +73,10 @@ export function useRoutinesSync(userId: string | undefined) {
   }, [userId, syncFromServer]);
 
   useEffect(() => {
+    setLocalRoutines(routines);
+
     if (!userId || !hasSyncedRef.current) return;
     if (userId.startsWith('guest')) return;
-
-    setLocalRoutines(routines);
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {

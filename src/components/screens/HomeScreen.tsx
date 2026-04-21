@@ -5,7 +5,11 @@ import { useRoutineStore } from '@/stores/routineStore';
 import { RoutineCard } from '@/components/RoutineCard';
 import { RoutineDetail } from '@/components/RoutineDetail';
 import { useState, useEffect, useMemo } from 'react';
+
+import { requestNotificationPermission, scheduleRoutineReminder, clearAllReminders } from '@/utils/notifications';
+
 import { requestNotificationPermission, scheduleRoutineReminder, clearAllReminders, checkDueRoutineReminders, enableClosedAppPushNotifications } from '@/utils/notifications';
+
 import { useDailyReset } from '@/hooks/useDailyReset';
 
 function useCurrentDate() {
@@ -106,7 +110,10 @@ export function HomeScreen() {
     const reminderRoutines = routines.filter(r => !r.archived && r.reminder && r.time);
     if (reminderRoutines.length === 0) return;
 
+        
+
     let interval: ReturnType<typeof setInterval> | null = null;
+
 
     requestNotificationPermission().then(granted => {
       if (!granted) return;
@@ -120,6 +127,9 @@ export function HomeScreen() {
         checkDueRoutineReminders(reminderRoutines, dayLabels);
       }, 1000);
     });
+
+
+    return () => clearAllReminders();
 
     const handleWake = () => {
       checkDueRoutineReminders(reminderRoutines, dayLabels);
@@ -140,6 +150,7 @@ export function HomeScreen() {
       window.removeEventListener('pageshow', handleWake);
       clearAllReminders();
     };
+
   }, [routines, dayLabels.join(',')]);
 
   const handleCreateOption = (type: 'routine' | 'moment') => {

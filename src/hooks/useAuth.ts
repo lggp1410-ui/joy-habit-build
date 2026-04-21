@@ -52,7 +52,21 @@ export function useAuth() {
   };
 
   const signInWithGoogle = () => {
-    window.location.href = '/api/auth/login';
+    const loginUrl = `${window.location.origin}/api/auth/login`;
+    const isEmbedded = (() => {
+      try {
+        return window.self !== window.top;
+      } catch {
+        return true;
+      }
+    })();
+
+    if (isEmbedded) {
+      window.open(loginUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
+    window.location.assign(loginUrl);
   };
 
   const isAuthenticated = !!state.user || state.isGuest;

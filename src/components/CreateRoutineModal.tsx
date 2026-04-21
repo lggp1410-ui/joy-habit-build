@@ -39,6 +39,14 @@ export function CreateRoutineModal() {
   const [showIconPicker, setShowIconPicker] = useState(false);
   const [showAddTask, setShowAddTask] = useState(false);
   const [reminder, setReminder] = useState(false);
+  const handleToggleReminder = async () => {
+    if (!reminder) {
+      const granted = await requestNotificationPermission();
+      if (!granted) return;
+    }
+    setReminder(!reminder);
+  };
+
   const [autoContinue, setAutoContinue] = useState(false);
   const [showDurationPicker, setShowDurationPicker] = useState(false);
   const [showRestPicker, setShowRestPicker] = useState(false);

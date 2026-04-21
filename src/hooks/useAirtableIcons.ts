@@ -36,10 +36,16 @@ function filterValidIcons(categories: AirtableCategory[]): AirtableCategory[] {
 }
 
 function sortCategories(cats: AirtableCategory[]): AirtableCategory[] {
+
+  const map = Object.fromEntries(cats.map(c => [c.name, c]));
+  const ordered = CATEGORY_ORDER.filter(n => map[n]).map(n => map[n]);
+  const rest = cats.filter(c => !CATEGORY_ORDER.includes(c.name));
+
   const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   const map = Object.fromEntries(cats.map(c => [normalize(c.name), c]));
   const ordered = CATEGORY_ORDER.filter(n => map[n]).map(n => map[n]);
   const rest = cats.filter(c => !CATEGORY_ORDER.includes(normalize(c.name)));
+
   return [...ordered, ...rest];
 }
 

@@ -19,10 +19,19 @@ if ("serviceWorker" in navigator) {
     }
 
     if (type === "NOTIFICATION_CLICKED") {
+
+      window.focus();
+      const currentUrl = `${window.location.pathname}${window.location.search}`;
+      if (url && url !== currentUrl) {
+        window.location.href = url;
+      } else if (url) {
+        window.dispatchEvent(new CustomEvent("planlizz-notification-open", { detail: { url } }));
+
       // Focus the window and navigate to the root
       window.focus();
       if (url && url !== window.location.pathname) {
         window.location.href = url;
+
       }
     }
   });
@@ -32,7 +41,21 @@ if ("serviceWorker" in navigator) {
   navigator.serviceWorker
     .register("/timer-sw.js", { updateViaCache: "none" })
     .then(async (reg) => {
+
+      if (reg.waiting) {
+        reg.waiting.postMessage({ type: "SKIP_WAITING" });
+      }
+      reg.addEventListener("updatefound", () => {
+        const next = reg.installing;
+        next?.addEventListener("statechange", () => {
+          if (next.state === "installed" && navigator.serviceWorker.controller) {
+            next.postMessage({ type: "SKIP_WAITING" });
+          }
+        });
+      });
+
       reg.update().catch(() => {});
+
       if (reg.active) {
         setTimerSWRegistration(reg);
         console.log("Timer SW registered (already active)");

@@ -4,11 +4,14 @@ import connectPgSimple from "connect-pg-simple";
 import cors from "cors";
 import sharp from "sharp";
 import pg from "pg";
+
+
 import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import webPush from "web-push";
+
 import { db } from "./db.js";
 import { userPreferences, icons } from "../shared/schema.js";
 import { eq, and } from "drizzle-orm";
@@ -143,16 +146,67 @@ pgPool.query(`
   CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire");
 `).catch((e: Error) => console.warn("[Sessions] Table setup warning:", e.message));
 
+const PgSession = connectPgSimple(session);
+const pgPool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+
+// Ensure session table exists
+const sessionTablesReady = pgPool.query(`
+  CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+  CREATE TABLE IF NOT EXISTS "session" (
+    "sid" varchar NOT NULL COLLATE "default",
+    "sess" json NOT NULL,
+    "expire" timestamp(6) NOT NULL,
+    CONSTRAINT "session_pkey" PRIMARY KEY ("sid") NOT DEFERRABLE INITIALLY IMMEDIATE
+  ) WITH (OIDS=FALSE);
+  CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire");
+`).catch((e: Error) => console.warn("[Sessions] Table setup warning:", e.message));
+
+const appTablesReady = sessionTablesReady.then(() => pgPool.query(`
+  CREATE TABLE IF NOT EXISTS "user_preferences" (
+    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    "user_id" varchar(255) NOT NULL UNIQUE,
+    "routines" jsonb DEFAULT '[]'::jsonb,
+    "recent_icons" jsonb DEFAULT '[]'::jsonb,
+    "updated_at" timestamp with time zone DEFAULT now()
+  );
+  CREATE TABLE IF NOT EXISTS "icons" (
+    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    "category" text NOT NULL,
+    "filename" text NOT NULL,
+    "storage_path" text NOT NULL,
+    "data" text,
+    "created_at" timestamp with time zone NOT NULL DEFAULT now()
+  );
+  CREATE INDEX IF NOT EXISTS "idx_icons_category_filename" ON "icons" ("category", "filename");
+`)).catch((e: Error) => {
+  console.error("[Database] App table setup failed:", e);
+  throw e;
+});
+
+// Trust Replit's reverse proxy so req.protocol returns 'https' correctly
+app.set('trust proxy', true);
+
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
+
+// Cookies must be secure: Replit always serves via HTTPS (even in dev)
+const isReplitEnv = !!(process.env.REPLIT_DEV_DOMAIN || process.env.REPLIT_DOMAINS);
 app.use(
   session({
     store: new PgSession({ pool: pgPool, tableName: "session" }),
+
+    secret: process.env.SESSION_SECRET || "planlizz-dev-secret",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: isReplitEnv || process.env.NODE_ENV === "production",
+
     secret: sessionSecret,
     resave: false,
     saveUninitialized: false,
     cookie: {
       secure: process.env.NODE_ENV === "production",
+
       httpOnly: true,
       sameSite: "lax",
       maxAge: 30 * 24 * 60 * 60 * 1000,
@@ -183,6 +237,8 @@ function getAppUrl(req?: express.Request): string {
   return "http://localhost:5000";
 }
 
+
+
 function createDemoSession(req: express.Request, res: express.Response) {
   req.session.userId = "demo_user";
   req.session.userName = "Demo User";
@@ -196,6 +252,7 @@ function createDemoSession(req: express.Request, res: express.Response) {
     res.redirect("/");
   });
 }
+
 
 // Auth middleware — checks session
 function requireAuth(
@@ -211,6 +268,17 @@ function requireAuth(
 }
 
 // ── Auth Routes ────────────────────────────────────────────────────────────
+
+// GET /api/auth/config — returns OAuth config info (redirect URI for Google Console)
+app.get("/api/auth/config", (req, res) => {
+  const redirectUri = `${getAppUrl(req)}/api/auth/callback`;
+  res.json({
+    redirectUri,
+    hasClientId: !!process.env.GOOGLE_CLIENT_ID,
+    hasClientSecret: !!process.env.GOOGLE_CLIENT_SECRET,
+    appUrl: getAppUrl(req),
+  });
+});
 
 // GET /api/auth/user — returns current session user
 app.get("/api/auth/user", (req, res) => {
@@ -245,6 +313,17 @@ app.post("/api/auth/logout", (req, res) => {
     res.json({ ok: true });
   });
 });
+
+
+// GET /api/auth/login — redirect to Google OAuth
+app.get("/api/auth/login", (req, res) => {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+
+  if (!clientId) {
+    // No OAuth configured — create a demo session
+    req.session.userId = "demo_user";
+    req.session.userName = "Demo User";
+    res.redirect("/");
 
 async function createGoogleSessionFromCode(
   req: express.Request,
@@ -345,6 +424,7 @@ app.get("/api/auth/login", (req, res) => {
 
   if (!clientId || !clientSecret) {
     createDemoSession(req, res);
+
     return;
   }
 
@@ -373,12 +453,68 @@ app.get("/api/auth/callback", async (req, res) => {
       return;
     }
 
+
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+
+    if (!clientId || !clientSecret) {
+      // Dev fallback — no credentials, demo session
+      req.session.userId = "demo_user";
+      req.session.userName = "Demo User";
+      res.redirect("/");
+      return;
+    }
+
+    const redirectUri = `${getAppUrl(req)}/api/auth/callback`;
+
+    // Exchange authorization code for tokens
+    const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        code,
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: redirectUri,
+        grant_type: "authorization_code",
+      }),
+    });
+
+    if (!tokenRes.ok) {
+      const errBody = await tokenRes.text();
+      console.error("[OAuth] Google token exchange failed:", errBody);
+      let reason = "token_exchange_failed";
+      try { reason = JSON.parse(errBody).error || reason; } catch {}
+      res.redirect(`/?auth_error=${encodeURIComponent(reason)}`);
+      return;
+    }
+
+    const { access_token } = (await tokenRes.json()) as { access_token: string };
+
+    // Get user profile from Google
+    const userRes = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+      headers: { Authorization: `Bearer ${access_token}` },
+    });
+
+    const profile = (await userRes.json()) as {
+      id: string;
+      name: string;
+      picture?: string;
+      email?: string;
+    };
+
+    req.session.userId = `google_${profile.id}`;
+    req.session.userName = profile.name;
+    req.session.userAvatar = profile.picture;
+
+
     const redirectUri = `${getAppUrl(req)}/api/auth/callback`;
     const result = await createGoogleSessionFromCode(req, code, redirectUri);
     if (!result.ok) {
       res.redirect(`/?auth_error=${encodeURIComponent(result.error)}`);
       return;
     }
+
 
     // Explicitly save session to DB before redirecting
     req.session.save((saveErr) => {
@@ -401,6 +537,7 @@ app.get("/api/auth/callback", async (req, res) => {
 // GET /api/preferences — load routines for logged-in user
 app.get("/api/preferences", requireAuth, async (req, res) => {
   try {
+    await appTablesReady;
     const userId = req.session.userId!;
     const row = await db
       .select()
@@ -418,6 +555,7 @@ app.get("/api/preferences", requireAuth, async (req, res) => {
 // PUT /api/preferences — save routines for logged-in user
 app.put("/api/preferences", requireAuth, async (req, res) => {
   try {
+    await appTablesReady;
     const userId = req.session.userId!;
     const { routines } = req.body;
 
@@ -435,6 +573,12 @@ app.put("/api/preferences", requireAuth, async (req, res) => {
     res.status(500).json({ error: "Failed to save preferences" });
   }
 });
+
+
+// GET /api/preferences/recent-icons — load recent icons for logged-in user
+app.get("/api/preferences/recent-icons", requireAuth, async (req, res) => {
+  try {
+    await appTablesReady;
 
 // ── Web Push Routes ─────────────────────────────────────────────────────────
 
@@ -485,6 +629,7 @@ app.post("/api/push/subscribe", requireAuth, async (req, res) => {
 // GET /api/preferences/recent-icons — load recent icons for logged-in user
 app.get("/api/preferences/recent-icons", requireAuth, async (req, res) => {
   try {
+
     const userId = req.session.userId!;
     if (userId.startsWith("guest")) {
       res.json({ recentIcons: [] });
@@ -506,6 +651,10 @@ app.get("/api/preferences/recent-icons", requireAuth, async (req, res) => {
 // PUT /api/preferences/recent-icons — save recent icons for logged-in user
 app.put("/api/preferences/recent-icons", requireAuth, async (req, res) => {
   try {
+
+    await appTablesReady;
+
+
     const userId = req.session.userId!;
     if (userId.startsWith("guest")) {
       res.json({ ok: true });
@@ -566,36 +715,74 @@ async function toBase64_128px(imageUrl: string): Promise<string | null> {
   }
 }
 
+async function getAirtableBaseIds(apiKey: string, configuredBaseId?: string): Promise<string[]> {
+  if (configuredBaseId) return [configuredBaseId];
+  try {
+    const metaRes = await fetch("https://api.airtable.com/v0/meta/bases", {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (!metaRes.ok) return [];
+    const meta = await metaRes.json() as { bases?: { id: string }[] };
+    return (meta.bases || []).map((base) => base.id).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+async function fetchAirtableRecords(apiKey: string, baseIds: string[], tableName: string): Promise<any[] | { error: string }> {
+  let lastError = "No accessible Airtable base found";
+
+  for (const baseId of baseIds) {
+    let allRecords: any[] = [];
+    let offset: string | undefined;
+
+    try {
+      do {
+        const url = new URL(`https://api.airtable.com/v0/${baseId}/${tableName}`);
+        url.searchParams.set("pageSize", "100");
+        if (offset) url.searchParams.set("offset", offset);
+
+        const aRes = await fetch(url.toString(), {
+          headers: { Authorization: `Bearer ${apiKey}` },
+        });
+
+        if (!aRes.ok) {
+          lastError = await aRes.text();
+          allRecords = [];
+          break;
+        }
+
+        const data = await aRes.json() as { records: any[]; offset?: string };
+        allRecords = allRecords.concat(data.records || []);
+        offset = data.offset;
+      } while (offset);
+
+      if (allRecords.length > 0) return allRecords;
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : "Airtable fetch failed";
+    }
+  }
+
+  return { error: `Airtable fetch failed: ${lastError}` };
+}
+
 async function syncIconsFromAirtable(): Promise<{ inserted: number; updated: number; skipped: number; errors: number; total_records: number } | { error: string }> {
   const apiKey = process.env.AIRTABLE_API_KEY;
   const baseId = process.env.AIRTABLE_BASE_ID;
 
-  if (!apiKey || !baseId) {
-    return { error: "Airtable credentials not configured" };
+  if (!apiKey) {
+    return { error: "Airtable API key not configured" };
   }
 
   const tableName = "tblNPJDonQwlhTADO";
-  let allRecords: any[] = [];
-  let offset: string | undefined;
+  const baseIds = await getAirtableBaseIds(apiKey, baseId);
+  if (baseIds.length === 0) {
+    return { error: "Airtable base not configured and no accessible bases found for this token" };
+  }
 
-  do {
-    const url = new URL(`https://api.airtable.com/v0/${baseId}/${tableName}`);
-    url.searchParams.set("pageSize", "100");
-    if (offset) url.searchParams.set("offset", offset);
-
-    const aRes = await fetch(url.toString(), {
-      headers: { Authorization: `Bearer ${apiKey}` },
-    });
-
-    if (!aRes.ok) {
-      const err = await aRes.text();
-      return { error: `Airtable fetch failed: ${err}` };
-    }
-
-    const data = await aRes.json() as { records: any[]; offset?: string };
-    allRecords = allRecords.concat(data.records || []);
-    offset = data.offset;
-  } while (offset);
+  const fetchedRecords = await fetchAirtableRecords(apiKey, baseIds, tableName);
+  if ("error" in fetchedRecords) return fetchedRecords;
+  const allRecords = fetchedRecords;
 
   const existingRows = await db
     .select({ category: icons.category, filename: icons.filename, data: icons.data })
@@ -664,6 +851,7 @@ async function syncIconsFromAirtable(): Promise<{ inserted: number; updated: num
 // GET /api/icons — return icons grouped by category (base64 data when available)
 app.get("/api/icons", async (_req, res) => {
   try {
+    await appTablesReady;
     const allIcons = await db
       .select()
       .from(icons)
@@ -688,11 +876,17 @@ app.get("/api/icons", async (_req, res) => {
       if (seenPerCategory[icon.category].has(icon.filename)) continue;
       seenPerCategory[icon.category].add(icon.filename);
 
+
+      if (!icon.data) continue;
+      const url = `data:image/png;base64,${icon.data}`;
+
       const url = icon.data
         ? `data:image/png;base64,${icon.data}`
         : icon.storagePath.startsWith("http")
         ? icon.storagePath
         : `/icons/${icon.storagePath}`;
+
+      
 
       categoryMap[icon.category].icons.push({ url, filename: icon.filename });
     }
@@ -719,6 +913,7 @@ app.get("/api/icons", async (_req, res) => {
 // POST /api/icons/sync — sync icons from Airtable, store as 128px base64 in DB
 app.post("/api/icons/sync", async (_req, res) => {
   try {
+    await appTablesReady;
     const result = await syncIconsFromAirtable();
     if ("error" in result) {
       res.status(500).json({ error: result.error });
@@ -826,6 +1021,7 @@ setInterval(() => {
 // Auto-sync icons in the background if the DB is empty
 async function autoSyncIconsIfEmpty() {
   try {
+    await appTablesReady;
     const rows = await db.select({ filename: icons.filename }).from(icons).limit(1);
     if (rows.length === 0) {
       console.log("[Icons] DB is empty — starting background Airtable sync...");
