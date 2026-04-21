@@ -31,12 +31,10 @@ if ("serviceWorker" in navigator) {
       window.focus();
       if (url && url !== window.location.pathname) {
         window.location.href = url;
-
       }
-    }
-  });
-}
-
+  }
+} 
+    
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker
     .register("/timer-sw.js", { updateViaCache: "none" })
@@ -75,6 +73,5 @@ if ("serviceWorker" in navigator) {
         const readyReg = await navigator.serviceWorker.ready;
         setTimerSWRegistration(readyReg);
       } catch {}
-    })
+   }
     .catch((err) => console.warn("Timer SW registration failed:", err));
-}
