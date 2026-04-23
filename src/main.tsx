@@ -38,7 +38,7 @@ if ("serviceWorker" in navigator) {
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker
   
-    // Registro do Service Worker de forma organizada
+// Registro do Service Worker de forma organizada
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker
     .register("/timer-sw.js", { updateViaCache: "none" })
@@ -81,4 +81,3 @@ if ("serviceWorker" in navigator) {
     })
     .catch((err) => console.warn("Erro no Service Worker:", err));
 }
-  
