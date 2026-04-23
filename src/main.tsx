@@ -37,10 +37,6 @@ if ("serviceWorker" in navigator) {
     
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker
-  
-// Registro do Service Worker de forma organizada
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker
     .register("/timer-sw.js", { updateViaCache: "none" })
     .then(async (reg) => {
       // 1. Se já tiver algo esperando, avisa
@@ -52,7 +48,7 @@ if ("serviceWorker" in navigator) {
       reg.addEventListener("updatefound", () => {
         const next = reg.installing;
         if (!next) return;
-        
+
         next.addEventListener("statechange", () => {
           if (next.state === "installed" && navigator.serviceWorker.controller) {
             next.postMessage({ type: "SKIP_WAITING" });
@@ -67,7 +63,6 @@ if ("serviceWorker" in navigator) {
         setTimerSWRegistration(reg);
         console.log("Timer SW registrado (já ativo)");
       } else {
-        // Se ainda estiver instalando, espera o evento de ativação
         const sw = reg.installing || reg.waiting;
         if (sw) {
           sw.addEventListener("statechange", () => {
@@ -81,3 +76,4 @@ if ("serviceWorker" in navigator) {
     })
     .catch((err) => console.warn("Erro no Service Worker:", err));
 }
+    
