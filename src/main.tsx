@@ -37,7 +37,8 @@ if ("serviceWorker" in navigator) {
     
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker
-    
+  
+    // Registro do Service Worker de forma organizada
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker
     .register("/timer-sw.js", { updateViaCache: "none" })
@@ -80,20 +81,4 @@ if ("serviceWorker" in navigator) {
     })
     .catch((err) => console.warn("Erro no Service Worker:", err));
 }
-  reg.waiting;
-        if (sw) {
-          sw.addEventListener("statechange", () => {
-            if (sw.state === "activated") {
-              setTimerSWRegistration(reg);
-              console.log("Timer SW registered (now active)");
-            }
-          });
-        }
-      }
-
-      try {
-        const readyReg = await navigator.serviceWorker.ready;
-        setTimerSWRegistration(readyReg);
-      } catch {}
-   })//
-    .catch((err) => console.warn("Timer SW registration failed:", err));
+  
