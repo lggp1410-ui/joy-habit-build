@@ -371,18 +371,11 @@ export async function scheduleTimerNotification(
   if (!sent) {
     setTimeout(() => {
       showNotification(title, body, {
-
         tag: tagValue,
         vibrate,
         requireInteraction: true,
         data: notificationData,
         priority: 'high',
-
-        tag: tag || 'timer-task',
-        vibrate: [300, 100, 300, 100, 300],
-        requireInteraction: true,
-        data: options?.data ?? { url: '/' },
-
       });
     }, delayMs);
   }
