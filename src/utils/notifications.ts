@@ -19,11 +19,10 @@ export async function showNotification(
     tag?: string;
     vibrate?: number[];
     requireInteraction?: boolean;
-    data?: unknown
+    data?: unknown;
     priority?: 'high' | 'normal' | 'low';
-
-    actions?: { action: string; title: string }[]; 
-
+    actions?: { action: string; title: string }[];
+  }
 ): Promise<void> {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
 
@@ -31,21 +30,13 @@ export async function showNotification(
     body,
     icon: options?.icon || '/images/logo.png',
     badge: '/images/logo.png',
-    tag: options?.tag;
+    tag: options?.tag,
     vibrate: options?.vibrate || [300, 100, 300, 100, 300, 100, 400],
-    requireInteraction: options?.requireInteraction ?? true,
-    silent: false,
-    renotify: true,
-    priority: options?.priority || 'high',
-    data: options?.data ?? { url: '/' },
-
-    vibrate: options?.vibrate || [300, 100, 300, 100, 300],
     requireInteraction: options?.requireInteraction ?? true,
     silent: false,
     renotify: true,
     data: options?.data ?? { url: '/' },
     actions: options?.actions,
-      
   };
 
   try {
@@ -345,11 +336,7 @@ export async function scheduleTimerNotification(
   title: string,
   body: string,
   tag?: string,
-
-  options?: { playSound?: boolean; soundUrl?: string; data?: unknown }
-
   options?: { playSound?: boolean; soundUrl?: string; data?: unknown; targetTimestamp?: number }
-
 ): Promise<void> {
   const fireAtMs = Date.now() + delayMs;
   const tagValue = tag || 'timer-task';
@@ -372,39 +359,23 @@ export async function scheduleTimerNotification(
     fireAtMs,
     title,
     body,
-
     vibrate,
     tag: tagValue,
-
-    vibrate: [300, 100, 300, 100, 300, 100, 300],
-    tag: tag || 'timer-task',
-
     requireInteraction: true,
     priority: 'high',
     playSound: options?.playSound || false,
     soundUrl: options?.soundUrl || '',
-
     data: notificationData,
-
-    data: options?.data ?? { url: '/' },
     targetTimestamp: options?.targetTimestamp,
-
   });
   if (!sent) {
     setTimeout(() => {
       showNotification(title, body, {
-
         tag: tagValue,
         vibrate,
         requireInteraction: true,
         data: notificationData,
         priority: 'high',
-
-        tag: tag || 'timer-task',
-        vibrate: [300, 100, 300, 100, 300],
-        requireInteraction: true,
-        data: options?.data ?? { url: '/' },
-
       });
     }, delayMs);
   }
@@ -450,7 +421,7 @@ export async function enableClosedAppPushNotifications(): Promise<boolean> {
     if (!subscription) {
       subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(publicKey),
+        applicationServerKey: urlBase64ToUint8Array(publicKey) as BufferSource,
       });
     }
 
@@ -471,46 +442,6 @@ export async function enableClosedAppPushNotifications(): Promise<boolean> {
 // ── Routine reminder scheduling ────────────────────────────────────────────
 
 const scheduledTimers = new Map<string, ReturnType<typeof setTimeout>>();
-
-
-/**
- * Schedule a reminder for a routine at its next occurrence.
- * dayLabels: ordered array of day abbreviations starting from Sunday,
- * e.g. ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'] for pt-BR.
- * This matches routine.days which stores the same abbreviations.
- */
-export function scheduleRoutineReminder(routine: Routine, dayLabels: string[]): void {
-  if (!routine.reminder || !routine.time) return;
-  if (!('Notification' in window) || Notification.permission !== 'granted') return;
-
-  const existing = scheduledTimers.get(routine.id);
-  if (existing) clearTimeout(existing);
-
-  const [hours, minutes] = routine.time.split(':').map(Number);
-  const now = new Date();
-
-  // Find the next occurrence within the next 7 days
-  for (let daysAhead = 0; daysAhead < 7; daysAhead++) {
-    const target = new Date(now);
-    target.setDate(now.getDate() + daysAhead);
-    target.setHours(hours, minutes, 0, 0);
-
-    // Skip if this target is already in the past (more than 1 minute ago)
-    if (target.getTime() < now.getTime() - 60 * 1000) continue;
-
-    // Check if this day matches the routine's scheduled days
-    const dayIdx = target.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
-    const dayLabel = dayLabels[dayIdx];
-    const dayMatches = routine.days.length === 0 || routine.days.includes(dayLabel);
-
-    if (!dayMatches) continue;
-
-    const delay = Math.max(0, target.getTime() - now.getTime());
-    const isMoment = routine.type === 'moment';
-    const title = isMoment ? `⭐ ${routine.name}` : `💐 ${routine.name}`;
-    const body = isMoment
-      ? `Está na hora de começar ${routine.name}! Toque para iniciar o momento! ⭐`
-      : `Está na hora de começar ${routine.name}! Toque para iniciar a rotina! 💐`;
 
 function getDateKey(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -583,9 +514,6 @@ async function fireRoutineReminder(routine: Routine, target: Date): Promise<void
 
 /**
  * Schedule a reminder for a routine at its next occurrence.
- * dayLabels: ordered array of day abbreviations starting from Sunday,
- * e.g. ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'] for pt-BR.
- * This matches routine.days which stores the same abbreviations.
  */
 export function scheduleRoutineReminder(routine: Routine, dayLabels: string[]): void {
   if (!routine.reminder || !routine.time) return;
@@ -601,7 +529,7 @@ export function scheduleRoutineReminder(routine: Routine, dayLabels: string[]): 
   const delay = Math.max(0, target.getTime() - now.getTime());
   const { title, body, data } = getReminderContent(routine);
 
-  scheduleTimerNotification(
+  void scheduleTimerNotification(
     `reminder-${routine.id}`,
     delay,
     title,
@@ -613,46 +541,10 @@ export function scheduleRoutineReminder(routine: Routine, dayLabels: string[]): 
   const timer = setTimeout(() => {
     fireRoutineReminder(routine, target);
     scheduledTimers.delete(routine.id);
+    scheduleRoutineReminder(routine, dayLabels);
   }, delay);
 
-
-    // Primary: schedule via Service Worker for background delivery
-    void scheduleTimerNotification(
-      `reminder-${routine.id}`,
-      delay,
-      title,
-      body,
-      `reminder-${routine.id}`,
-      {
-        data: {
-          url: `/?routineId=${encodeURIComponent(routine.id)}`,
-          type: 'reminder',
-          routineId: routine.id,
-        },
-      }
-    );
-
-    // Fallback: setTimeout for when the app is open
-    const timer = setTimeout(() => {
-      showNotification(title, body, {
-        tag: `reminder-${routine.id}`,
-        vibrate: [300, 100, 300, 100, 300, 100, 400],
-        requireInteraction: true,
-        data: {
-          url: `/?routineId=${encodeURIComponent(routine.id)}`,
-          type: 'reminder',
-          routineId: routine.id,
-        },
-        priority: 'high',
-      });
-      scheduledTimers.delete(routine.id);
-      // Re-schedule for next occurrence after this one fires
-      scheduleRoutineReminder(routine, dayLabels);
-    }, delay);
-
-    scheduledTimers.set(routine.id, timer);
-    break;
-  }
+  scheduledTimers.set(routine.id, timer);
 }
 
 export function checkDueRoutineReminders(routines: Routine[], dayLabels: string[]): void {

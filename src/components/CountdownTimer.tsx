@@ -11,6 +11,7 @@ import {
   cancelTimerNotification,
   cancelAllTimerNotifications,
   stopPersistentTimerNotification,
+  startPersistentTimerNotification,
   updatePersistentTimerNotification,
   registerBackgroundTimer,
   pauseBackgroundTimer,
@@ -155,6 +156,7 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(
         isPersistentTimer: true,
       }),
       [routine.id]
+    );
 
     /**
      * Sends the current timer state to the persistent SW notification.
@@ -179,7 +181,6 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(
         }
       },
       [notifPermission, getNotifLabel, formatTimerValue, isResting, routine.id]
-
     );
 
     // ── Permission request ───────────────────────────────────────────────
@@ -259,24 +260,11 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(
           {
             playSound,
             soundUrl,
-
             data: getNotificationRouteData('completion'),
           }
         );
       },
       [getNotificationRouteData, getSelectedSoundConfig]
-
-            data: {
-              url: `/?routineId=${encodeURIComponent(routine.id)}&timer=1`,
-              routineId: routine.id,
-              openTimer: true,
-              type: 'timer-task-complete',
-            },
-          }
-        );
-      },
-      [getSelectedSoundConfig, routine.id, t]
-
     );
 
     useEffect(() => {
@@ -489,17 +477,8 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(
               tag: 'timer-task-complete',
               vibrate: [200, 100, 200, 100, 200],
               requireInteraction: true,
-
               data: getNotificationRouteData('completion'),
               priority: 'high',
-
-              data: {
-                url: `/?routineId=${encodeURIComponent(routine.id)}&timer=1`,
-                routineId: routine.id,
-                openTimer: true,
-                type: 'timer-task-complete',
-              },
-
             }
           );
         }
@@ -563,12 +542,6 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(
 
       const restSecs = getRestSeconds();
       if (restSecs > 0 && incompleteTasks.length > 1) {
-
-        const restNow = Date.now();
-        setIsResting(true);
-        totalDurationRef.current = restSecs;
-        startTimeRef.current = restNow;
-
         const now = Date.now();
         setIsResting(true);
         totalDurationRef.current = restSecs;
@@ -583,11 +556,7 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(
         setIsRunning(true);
 
         persistState({
-
-          startTimestamp: restNow,
-
           startTimestamp: now,
-
           totalDuration: restSecs,
           pausedRemaining: restSecs,
           isResting: true,
@@ -597,7 +566,7 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(
         if (notifPermission) {
 
           const restLabel = t('timer.restTime', 'Tempo de descanso');
-          registerBackgroundTimer(restLabel, restNow, restSecs, true, '', false, getNotificationRouteData());
+          registerBackgroundTimer(restLabel, now, restSecs, true, '', false, getNotificationRouteData());
 
           startPersistentTimerNotification(
             t('timer.restTime', 'Tempo de descanso'),

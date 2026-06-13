@@ -6,8 +6,6 @@ import { RoutineCard } from '@/components/RoutineCard';
 import { RoutineDetail } from '@/components/RoutineDetail';
 import { useState, useEffect, useMemo } from 'react';
 
-import { requestNotificationPermission, scheduleRoutineReminder, clearAllReminders } from '@/utils/notifications';
-
 import { requestNotificationPermission, scheduleRoutineReminder, clearAllReminders, checkDueRoutineReminders, enableClosedAppPushNotifications } from '@/utils/notifications';
 
 import { useDailyReset } from '@/hooks/useDailyReset';

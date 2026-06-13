@@ -19,21 +19,17 @@ if ("serviceWorker" in navigator) {
     }
 
     if (type === "NOTIFICATION_CLICKED") {
-
       window.focus();
       const currentUrl = `${window.location.pathname}${window.location.search}`;
       if (url && url !== currentUrl) {
         window.location.href = url;
       } else if (url) {
         window.dispatchEvent(new CustomEvent("planlizz-notification-open", { detail: { url } }));
-
-      // Focus the window and navigate to the root
-      window.focus();
-      if (url && url !== window.location.pathname) {
-        window.location.href = url;
       }
-  }
-} 
+    }
+  });
+}
+
     
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker
