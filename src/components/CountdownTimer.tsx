@@ -566,7 +566,7 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(
         if (notifPermission) {
 
           const restLabel = t('timer.restTime', 'Tempo de descanso');
-          registerBackgroundTimer(restLabel, restNow, restSecs, true, '', false, getNotificationRouteData());
+          registerBackgroundTimer(restLabel, now, restSecs, true, '', false, getNotificationRouteData());
 
           startPersistentTimerNotification(
             t('timer.restTime', 'Tempo de descanso'),
