@@ -153,14 +153,6 @@ export function CreateRoutineModal() {
     setOpenMenuTaskId(null);
   };
 
-  const handleToggleReminder = async () => {
-    if (!reminder) {
-      const granted = await requestNotificationPermission();
-      if (!granted) return;
-    }
-
-    setReminder(prev => !prev);
-  };
 
   const handleSave = () => {
     if (!name.trim() || tasks.length === 0) return;

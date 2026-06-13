@@ -97,10 +97,6 @@ export function RoutineDetail() {
     setShowCreateModal(true);
   };
 
-  const handleStartTimer = async () => {
-    await requestNotificationPermission();
-    setShowTimer(true);
-  };
 
   const getTaskRestTime = (taskIndex: number) => {
     const task = routine.tasks[taskIndex];

@@ -11,6 +11,7 @@ import {
   cancelTimerNotification,
   cancelAllTimerNotifications,
   stopPersistentTimerNotification,
+  startPersistentTimerNotification,
   updatePersistentTimerNotification,
   registerBackgroundTimer,
   pauseBackgroundTimer,
@@ -476,17 +477,8 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(
               tag: 'timer-task-complete',
               vibrate: [200, 100, 200, 100, 200],
               requireInteraction: true,
-
               data: getNotificationRouteData('completion'),
               priority: 'high',
-
-              data: {
-                url: `/?routineId=${encodeURIComponent(routine.id)}&timer=1`,
-                routineId: routine.id,
-                openTimer: true,
-                type: 'timer-task-complete',
-              },
-
             }
           );
         }
@@ -550,12 +542,6 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(
 
       const restSecs = getRestSeconds();
       if (restSecs > 0 && incompleteTasks.length > 1) {
-
-        const restNow = Date.now();
-        setIsResting(true);
-        totalDurationRef.current = restSecs;
-        startTimeRef.current = restNow;
-
         const now = Date.now();
         setIsResting(true);
         totalDurationRef.current = restSecs;
@@ -570,11 +556,7 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(
         setIsRunning(true);
 
         persistState({
-
-          startTimestamp: restNow,
-
           startTimestamp: now,
-
           totalDuration: restSecs,
           pausedRemaining: restSecs,
           isResting: true,
