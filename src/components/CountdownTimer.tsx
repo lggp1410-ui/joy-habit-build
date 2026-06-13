@@ -155,6 +155,7 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(
         isPersistentTimer: true,
       }),
       [routine.id]
+    );
 
     /**
      * Sends the current timer state to the persistent SW notification.
@@ -179,7 +180,6 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(
         }
       },
       [notifPermission, getNotifLabel, formatTimerValue, isResting, routine.id]
-
     );
 
     // ── Permission request ───────────────────────────────────────────────
@@ -259,24 +259,11 @@ export const CountdownTimer = forwardRef<HTMLDivElement, CountdownTimerProps>(
           {
             playSound,
             soundUrl,
-
             data: getNotificationRouteData('completion'),
           }
         );
       },
       [getNotificationRouteData, getSelectedSoundConfig]
-
-            data: {
-              url: `/?routineId=${encodeURIComponent(routine.id)}&timer=1`,
-              routineId: routine.id,
-              openTimer: true,
-              type: 'timer-task-complete',
-            },
-          }
-        );
-      },
-      [getSelectedSoundConfig, routine.id, t]
-
     );
 
     useEffect(() => {

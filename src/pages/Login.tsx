@@ -1,16 +1,11 @@
-
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/hooks/useAuth';
 
-import { useState } from "react";
-
-
-// Removi o import do supabase para não quebrar o build
-export default function Login() {
-  const [status, setStatus] = useState("Clique para entrar");
-
+interface LoginProps {
+  onGuest: () => void;
+}
 
 const ERROR_MESSAGES: Record<string, string> = {
   access_denied: 'Acesso negado pelo usuário. Tente novamente.',
@@ -28,8 +23,6 @@ export default function Login({ onGuest }: LoginProps) {
   const { t } = useTranslation();
   const { signInWithGoogle } = useAuth();
   const [authError, setAuthError] = useState<string | null>(null);
-  const [redirectUri, setRedirectUri] = useState<string | null>(null);
-  const [configReady, setConfigReady] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -40,32 +33,13 @@ export default function Login({ onGuest }: LoginProps) {
     }
   }, []);
 
-  useEffect(() => {
-    fetch('/api/auth/config')
-      .then((r) => r.json())
-      .then((data) => {
-        setRedirectUri(data.redirectUri);
-        setConfigReady(data.hasClientId && data.hasClientSecret);
-      })
-      .catch(() => {});
-  }, []);
-
-  const handleGoogleLogin = async () => {
-    setStatus("O sistema de login precisa de configuração extra...");
-    // Aqui seria o login, mas como o import falha, 
-    // estamos apenas simulando para o site não travar.
-    alert("O login ainda está sendo conectado ao banco de dados!");
-  };
-
-
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4">
-      <h1 className="text-2xl font-bold mb-4">Bem-vinda ao seu App</h1>
-      <button 
-        onClick={handleGoogleLogin}
-        className="px-6 py-3 bg-blue-500 text-white rounded hover:bg-blue-600 transition"
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="w-full max-w-sm flex flex-col items-center gap-6 text-center"
       >
-
         <div className="space-y-2">
           <div className="w-20 h-20 mx-auto rounded-card gradient-primary flex items-center justify-center shadow-soft">
             <img src="/images/logo.png" alt="PlanLizz" className="w-12 h-12 object-contain" />
@@ -84,34 +58,6 @@ export default function Login({ onGuest }: LoginProps) {
             <p className="text-xs text-red-600">
               {ERROR_MESSAGES[authError] ?? `Erro: ${authError}`}
             </p>
-            {authError === 'redirect_uri_mismatch' && redirectUri && (
-              <div className="mt-2 p-2 bg-red-100 rounded text-left">
-                <p className="text-xs text-red-700 font-medium mb-1">
-                  Adicione este URI no Google Cloud Console → Credenciais → OAuth → URIs de redirecionamento:
-                </p>
-                <code className="text-xs text-red-800 break-all block bg-white px-2 py-1 rounded border border-red-200">
-                  {redirectUri}
-                </code>
-              </div>
-            )}
-          </motion.div>
-        )}
-
-        {!configReady && !authError && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="w-full px-4 py-3 rounded-card bg-amber-50 border border-amber-200 text-left"
-          >
-            <p className="text-xs text-amber-700 font-medium mb-1">Configure o Google OAuth</p>
-            <p className="text-xs text-amber-600 mb-2">
-              Adicione este URI de redirecionamento no Google Cloud Console:
-            </p>
-            {redirectUri && (
-              <code className="text-xs text-amber-800 break-all block bg-white px-2 py-1 rounded border border-amber-200">
-                {redirectUri}
-              </code>
-            )}
           </motion.div>
         )}
 
@@ -146,13 +92,6 @@ export default function Login({ onGuest }: LoginProps) {
           </button>
         </div>
       </motion.div>
-
-        Entrar com Google
-      </button>
-      <div className="mt-4 p-2 text-gray-600 text-sm">
-        Status: {status}
-      </div>
-
     </div>
   );
 }

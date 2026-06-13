@@ -19,11 +19,10 @@ export async function showNotification(
     tag?: string;
     vibrate?: number[];
     requireInteraction?: boolean;
-    data?: unknown
+    data?: unknown;
     priority?: 'high' | 'normal' | 'low';
-
-    actions?: { action: string; title: string }[]; 
-
+    actions?: { action: string; title: string }[];
+  }
 ): Promise<void> {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
 
@@ -31,21 +30,13 @@ export async function showNotification(
     body,
     icon: options?.icon || '/images/logo.png',
     badge: '/images/logo.png',
-    tag: options?.tag;
+    tag: options?.tag,
     vibrate: options?.vibrate || [300, 100, 300, 100, 300, 100, 400],
-    requireInteraction: options?.requireInteraction ?? true,
-    silent: false,
-    renotify: true,
-    priority: options?.priority || 'high',
-    data: options?.data ?? { url: '/' },
-
-    vibrate: options?.vibrate || [300, 100, 300, 100, 300],
     requireInteraction: options?.requireInteraction ?? true,
     silent: false,
     renotify: true,
     data: options?.data ?? { url: '/' },
     actions: options?.actions,
-      
   };
 
   try {
@@ -345,11 +336,7 @@ export async function scheduleTimerNotification(
   title: string,
   body: string,
   tag?: string,
-
-  options?: { playSound?: boolean; soundUrl?: string; data?: unknown }
-
   options?: { playSound?: boolean; soundUrl?: string; data?: unknown; targetTimestamp?: number }
-
 ): Promise<void> {
   const fireAtMs = Date.now() + delayMs;
   const tagValue = tag || 'timer-task';
@@ -372,23 +359,14 @@ export async function scheduleTimerNotification(
     fireAtMs,
     title,
     body,
-
     vibrate,
     tag: tagValue,
-
-    vibrate: [300, 100, 300, 100, 300, 100, 300],
-    tag: tag || 'timer-task',
-
     requireInteraction: true,
     priority: 'high',
     playSound: options?.playSound || false,
     soundUrl: options?.soundUrl || '',
-
     data: notificationData,
-
-    data: options?.data ?? { url: '/' },
     targetTimestamp: options?.targetTimestamp,
-
   });
   if (!sent) {
     setTimeout(() => {
